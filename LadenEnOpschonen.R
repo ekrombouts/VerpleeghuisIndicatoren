@@ -1,8 +1,18 @@
 # Datum: Augustus 2022
 # Auteur: Eva Rombouts
 # Oefenproject in het kader van leren R en R Studio
-# Voornaamste gebruikte bronnen: Coursera cursus Johns Hopkins, R Ladies Sidney 
-# en R Programming 101
+# Voornaamste gebruikte bronnen voor het leren van R: 
+# Coursera cursus Johns Hopkins, R Ladies Sidney en R Programming 101
+
+# Bron data: https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg  
+# Dit betreft de kwaliteitsindicatoren die zorginstellingen jaarlijks moeten 
+# verzamelen en opsturen. Het doel van deze actie is niet zozeer om te 
+# vergelijken of een organisatie "het wel goed doet", maar eerder als een 
+# middel om te kunnen reflecteren. 
+
+# Projectvraag: Presenteer deze gegevens op een overzichtelijke manier. 
+# Waar mogelijk, geef de mogelijkheid om zorgorganisatie A te vergelijken met 
+# andere - vergelijkbare - zorgorganisaties. 
 
 # Laad packages ----
 library(tidyverse) 
