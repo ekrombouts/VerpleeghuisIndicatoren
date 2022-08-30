@@ -215,22 +215,26 @@ bv <- bv %>%
     - indicatorset_ID
   )
 
-# Verder opschonen van deze lokaties. 
-# De grootte van de lokaties is belangrijk. Hiervoor ga ik de noemer van de
-# verschillende indicatoren 
+# Verder opschonen / aanvullen van deze lokaties. 
+# Om de grootte van de locatie in te schatten zijn twee waardevolle
+# gegevens bekend. Medicatieveiligheid en voedselvoorkeuren zijn verplichte 
+# indicatoren en wordt ingevuld op respectievelijk afdelings- en op clientniveau. 
+# Indicator_ID 6 = "Percentage afdelingen ... medicatiefouten"
+# Indicator_ID 32 = "Percentage cliënten op de afdeling ... voedselvoorkeuren"
+
 dlokaties <- lokaties %>% 
-  left_join (
-    select (bv, noemer, lokatie_ID),
+  left_join(
+    filter (select(bv, noemer, lokatie_ID, indicator_ID), indicator_ID == 6),
     by = "lokatie_ID"
   ) %>% 
-  group_by (
-    across(c(-noemer))
+  rename (nafdelingen = noemer) %>% 
+  select (-indicator_ID) %>% 
+  left_join(
+    filter (select(bv, noemer, lokatie_ID, indicator_ID), indicator_ID == 32),
+    by = "lokatie_ID"
   ) %>% 
-  summarise (
-    maxnoemer = max(noemer, na.rm = TRUE),
-    minnoemer = min(noemer, na.rm = TRUE),
-    meannoemer = mean(noemer, na.rm = TRUE),
-    mediannoemer = median(noemer, na.rm = TRUE)
-  ) %>% 
-  mutate(verschil = maxnoemer - mediannoemer) %>% 
-  arrange (-verschil)
+  rename (nclienten = noemer) %>% 
+  select (-indicator_ID) %>% 
+  mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
+  arrange(-cltPerAfd)
+  
