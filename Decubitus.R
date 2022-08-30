@@ -30,18 +30,20 @@ decubitus <- dfact %>%
     noemer = noemer_percentage,
     invt = invt_percentage
   ) %>% 
-  mutate(percentage = as.numeric(percentage))
+  mutate(percentage = as.numeric(percentage),
+         gekozen = as.logical(recode(gekozen, 'ja' = TRUE, 'nee' = FALSE))
+         )
 
-## Vergelijk gekozen vs niet---------------------------------------------------
-# Hebben 
-lokaties <- lokaties %>% 
-  left_join (select(dfact, noemer, lokatie_ID),
-             by = "lokatie_ID") %>% 
-  group_by (across(c(-noemer))) %>% 
-  summarise(maxnoemer = max(noemer, na.rm = TRUE)) %>% 
-  arrange(-maxnoemer)
-
-
+# Eyeball gegevens:
+skim (decubitus)
+# Alle 2349 lokaties hebben aangeleverd. 
+# Van deze lokaties hebben 1236 decubitus al keuze-indicator gekozen.
+# Wat opvalt is dat er maar 1113 percentages en 1152 tellers & noemers zijn 
+# opgenomen. 
+# 
+# Allereerst vergelijken we de lokaties/organisaties die wel en niet decubitus
+# hebben gekozen: 
+# 
 
 ggplot (data = decubitus,
         mapping = aes (x = percentage)

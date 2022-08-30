@@ -60,7 +60,7 @@ df <- df %>%
          type_zorgaanbieder = as.factor(type_zorgaanbieder),
          # thema = as.factor(thema)   Tegen besloten
          ieenheid = as.factor(ieenheid),
-         invt = as.factor(invt), 
+         invt = as.logical(invt), 
          itype = as.factor(itype),
          # Sommige variabelen moeten juist wel als tekst
          bron = as.character(bron),
@@ -190,3 +190,47 @@ dfact <- df %>%
     - aanlever_frequentie
   )
 
+# Maak aparte tabellen voor Basisveiligheid en Personeelssamenstelling. 
+bv <- dfact %>% 
+  left_join(
+    select (indicatoren, indicator_ID, thema_ID),
+    by = "indicator_ID"
+  ) %>% 
+  left_join(
+    select (themas, thema_ID, indicatorset_ID),
+    by = "thema_ID"
+  ) 
+  
+ps <- bv %>%
+  filter (indicatorset_ID == 2) %>% 
+  select (
+    - thema_ID,
+    - indicatorset_ID
+  )
+
+bv <- bv %>%
+  filter (indicatorset_ID == 1) %>% 
+  select (
+    - thema_ID,
+    - indicatorset_ID
+  )
+
+# Verder opschonen van deze lokaties. 
+# De grootte van de lokaties is belangrijk. Hiervoor ga ik de noemer van de
+# verschillende indicatoren 
+dlokaties <- lokaties %>% 
+  left_join (
+    select (bv, noemer, lokatie_ID),
+    by = "lokatie_ID"
+  ) %>% 
+  group_by (
+    across(c(-noemer))
+  ) %>% 
+  summarise (
+    maxnoemer = max(noemer, na.rm = TRUE),
+    minnoemer = min(noemer, na.rm = TRUE),
+    meannoemer = mean(noemer, na.rm = TRUE),
+    mediannoemer = median(noemer, na.rm = TRUE)
+  ) %>% 
+  mutate(verschil = maxnoemer - mediannoemer) %>% 
+  arrange (-verschil)
