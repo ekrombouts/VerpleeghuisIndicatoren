@@ -1,10 +1,12 @@
-
+# Datum: 30 Augustus 2022
+# Auteur: Eva Rombouts
+# Oefenproject in het kader van leren R en R Studio
 
 # Decubitus ------------------------------------------------------------------
 # Decubitus is een keuze indicator. Het thema heeft 2 indicatoren:
 # Gekozen ja/nee en het percentage. 
-# Allereerst maak ik een tabel waar een rij 1 observatie is. 
 
+# Allereerst maak ik een tabel waar een rij 1 observatie is. 
 decubitus <- dfact %>%
   left_join(select(indicatoren, thema_ID, indicator_ID), "indicator_ID")%>%
   filter (thema_ID == 1) %>% 
