@@ -29,6 +29,15 @@ df <-
                   "openbaar-databestand-verpleeghuiszorg-verslagjaar-2020.xlsx"),
              sheet = "verpleeghuiszorg VJ2020")
 
+# https://www.cbs.nl/nl-nl/longread/diversen/2021/statistische-gegevens-per-vierkant-en-postcode-2020-2019-2018?onepage=true#c-4--Beschrijving-cijfers
+cbs_postcode <- 
+  read_excel(here("data",
+                  "data/cbs_pc4_2020_v1.xlsx"),
+             sheet = "PC4_2020_v1", 
+             na = "-99997", 
+             skip = 8)
+cbs_postcode <- cbs_postcode[-1, ]
+
 # Opschonen ----
 df <- df %>%
   clean_names() %>%
@@ -223,18 +232,38 @@ bv <- bv %>%
 # Indicator_ID 32 = "Percentage cliënten op de afdeling ... voedselvoorkeuren"
 
 dlokaties <- lokaties %>% 
+  # koppel met indicator 6 tbv aantal afdelingen
   left_join(
     filter (select(bv, noemer, lokatie_ID, indicator_ID), indicator_ID == 6),
     by = "lokatie_ID"
   ) %>% 
   rename (nafdelingen = noemer) %>% 
   select (-indicator_ID) %>% 
+  # koppel met indicator 32 tbv aantal clienten
   left_join(
     filter (select(bv, noemer, lokatie_ID, indicator_ID), indicator_ID == 32),
     by = "lokatie_ID"
   ) %>% 
   rename (nclienten = noemer) %>% 
   select (-indicator_ID) %>% 
+  # en bereken het aantal clienten per afdeling
   mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
-  arrange(-cltPerAfd)
-  
+  # Voeg stedelijkheid toe
+  mutate (lpostcode = substr(lpostcode, 1,4)) %>% 
+  # Koppel met CBS-data
+  left_join(
+    select(cbs_postcode, PC4, STED),
+    by = c("lpostcode" = "PC4")
+  ) %>% 
+  rename (stedelijk = STED) %>% 
+  mutate (stedelijk = factor(stedelijk,
+                             ordered = TRUE
+                             ))
+
+levels(dlokaties$stedelijk) <- c(
+  "Zeer sterk",
+  "Sterk",
+  "Matig",
+  "Weinig", 
+  "Niet"
+)
