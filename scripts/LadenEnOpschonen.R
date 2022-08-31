@@ -1,3 +1,4 @@
+# Verpleeghuisindicatoren -----------------------------------------------------
 # Datum: Augustus 2022
 # Auteur: Eva Rombouts
 # Oefenproject in het kader van leren R en R Studio
@@ -14,7 +15,7 @@
 # Waar mogelijk, geef de mogelijkheid om zorgorganisatie A te vergelijken met 
 # andere - vergelijkbare - zorgorganisaties. 
 
-# Laad packages ----
+# Packages ----
 library(tidyverse) 
 library(here)
 library(skimr)
@@ -24,6 +25,7 @@ library(readxl)
 library (lubridate)
 
 # Laad data ----
+# https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg#verslagjaar-2020
 df <- 
   read_excel(here("data", 
                   "openbaar-databestand-verpleeghuiszorg-verslagjaar-2020.xlsx"),
@@ -32,9 +34,10 @@ df <-
 # https://www.cbs.nl/nl-nl/longread/diversen/2021/statistische-gegevens-per-vierkant-en-postcode-2020-2019-2018?onepage=true#c-4--Beschrijving-cijfers
 cbs_postcode <- 
   read_excel(here("data",
-                  "data/cbs_pc4_2020_v1.xlsx"),
+                  "cbs_pc4_2020_v1.xlsx"),
              sheet = "PC4_2020_v1", 
-             na = "-99997", 
+             na = "-99997", # Deze data is met opzet door CBS verborgen gehouden
+             # ivm privacy
              skip = 8)
 cbs_postcode <- cbs_postcode[-1, ]
 
@@ -224,14 +227,15 @@ bv <- bv %>%
     - indicatorset_ID
   )
 
-# Verder opschonen / aanvullen van deze lokaties. 
-# Om de grootte van de locatie in te schatten zijn twee waardevolle
-# gegevens bekend. Medicatieveiligheid en voedselvoorkeuren zijn verplichte 
-# indicatoren en wordt ingevuld op respectievelijk afdelings- en op clientniveau. 
+
+# Lokaties: aanvullen en opschonen ---------------------------------------------
+
+# Om de grootte van de locatie in te schatten zijn twee soorten gegevens bekend. 
+# Medicatieveiligheid en voedselvoorkeuren zijn verplichte indicatoren en 
+# wordt ingevuld op respectievelijk afdelings- en op clientniveau. 
 # Indicator_ID 6 = "Percentage afdelingen ... medicatiefouten"
 # Indicator_ID 32 = "Percentage cliënten op de afdeling ... voedselvoorkeuren"
-
-dlokaties <- lokaties %>% 
+lokaties <- lokaties %>% 
   # koppel met indicator 6 tbv aantal afdelingen
   left_join(
     filter (select(bv, noemer, lokatie_ID, indicator_ID), indicator_ID == 6),
@@ -248,22 +252,49 @@ dlokaties <- lokaties %>%
   select (-indicator_ID) %>% 
   # en bereken het aantal clienten per afdeling
   mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
-  # Voeg stedelijkheid toe
+  # grootte van de lokaties gecontroleerd middels grafiek en eyeballing tabel.
+  # Allereerst lokaties met een abnormaal hoog aantal afdelingen. 
+  # Organisatie 16 heeft niet goed gerapporteerd (heeft totaal aantal afdelingen
+  # van organisatie genomen), dus deze waarde wordt verwijderd. 
+  # De daarna hoogste aantal afdelingen hebben een reeel aantal clienten per
+  # afdeling, dus dat zal kloppen
+  mutate(nafdelingen = replace(nafdelingen, organisatie_ID==16, NA)) %>% 
+  # Vervolgens abnormaal hoog aantal clienten per afdeling
+  # > 75 is niet reeel, hieronder zie je dat er af en toe wel meerdere afdelingen
+  # zijn. 
+  mutate(nafdelingen = replace(nafdelingen, cltPerAfd>75, NA)) %>% 
+  # herbereken cltPerAfd
+  mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
+  # Omdat het toch twijfelachtig blijft maak ik hier maar een level van
+  mutate (nAfd = factor(case_when(
+    nafdelingen == 1 ~ '1',
+    nafdelingen == 2 ~ '2',
+    nafdelingen >= 3 & nafdelingen <= 5 ~ "3-5",
+    nafdelingen >= 6 & nafdelingen <= 8 ~ "6-8",
+    nafdelingen > 8 ~ ">8"))) %>% 
+  mutate(nAfd = ordered (nAfd, levels = 
+                           c( "1",   "2",   "3-5", "6-8", ">8" ))) %>% 
+  # Controleer aantal clienten: Gecontroleerd met histogram en eyeballing. 
+  # Minimaal aantal clienten is 10, lijkt me reeel. 
+  # 
+  # Voeg stedelijkheid toe, koppel met CBS data
   mutate (lpostcode = substr(lpostcode, 1,4)) %>% 
-  # Koppel met CBS-data
   left_join(
     select(cbs_postcode, PC4, STED),
     by = c("lpostcode" = "PC4")
   ) %>% 
   rename (stedelijk = STED) %>% 
-  mutate (stedelijk = factor(stedelijk,
-                             ordered = TRUE
-                             ))
+  mutate (stedelijk = factor(case_when(
+    stedelijk == 1 ~ "Zeer sterk",
+    stedelijk == 2 ~ "Sterk",
+    stedelijk == 3 ~ "Matig",
+    stedelijk == 4 ~ "Weinig", 
+    stedelijk == 5 ~ "Niet" ))) %>% 
+  mutate(stedelijk = ordered (stedelijk, levels =
+                                c("Zeer sterk", 
+                                  "Sterk",
+                                  "Matig",
+                                  "Weinig", 
+                                  "Niet"
+                                 )))
 
-levels(dlokaties$stedelijk) <- c(
-  "Zeer sterk",
-  "Sterk",
-  "Matig",
-  "Weinig", 
-  "Niet"
-)
