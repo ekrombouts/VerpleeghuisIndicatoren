@@ -32,6 +32,7 @@ df <-
              sheet = "verpleeghuiszorg VJ2020")
 
 # https://www.cbs.nl/nl-nl/longread/diversen/2021/statistische-gegevens-per-vierkant-en-postcode-2020-2019-2018?onepage=true#c-4--Beschrijving-cijfers
+# tbv stedelijkheid.
 cbs_postcode <- 
   read_excel(here("data",
                   "cbs_pc4_2020_v1.xlsx"),
@@ -39,11 +40,13 @@ cbs_postcode <-
              na = "-99997", # Deze data is met opzet door CBS verborgen gehouden
              # ivm privacy
              skip = 8)
+# Eerste rij bevat uitleg, eruit
 cbs_postcode <- cbs_postcode[-1, ]
 
 # Opschonen ----
 df <- df %>%
-  clean_names() %>%
+  # Aanpassen kolomnamen
+  clean_names() %>% # Uit de janitor package
   rename(indicatorset = indicatorset_naam,
          organisatie = organisatie_naam,
          okvk = kvk_nummer,
@@ -64,10 +67,15 @@ df <- df %>%
          itype = indicator_type,
          begindat = meetperiode_begin_datum,
          einddat = meetperiode_eind_datum) %>%
+  # Aanpassen datatypes
   mutate(begindat = as_date(begindat),
          einddat = as_date(einddat),
          verslagjaar = as.Date(ISOdate(verslagjaar,12,31)),
-         indicatorset = as.factor(indicatorset),
+         indicatorset = factor(case_when(
+           indicatorset == 'Verpleeghuiszorg Basisveiligheid' ~
+             "Basisveiligheid", 
+           indicatorset == 'Verpleeghuiszorg Personeelssamenstelling' ~ 
+             "Personeelssamenstelling")),
          indicatorset_code = as.factor(indicatorset_code),
          type_zorgaanbieder = as.factor(type_zorgaanbieder),
          # thema = as.factor(thema)   Tegen besloten
@@ -81,13 +89,7 @@ df <- df %>%
          lvestigingsnummer = as.character(lvestigingsnummer),
          lagb = as.character(lagb)
   ) 
-
-# Factors - ik kwam er even niet uit hoe dit te doen met dplyr...
-# Iets makkelijker leesbaar maken
-levels(df$indicatorset) <- c("Basisveiligheid", "Personeelssamenstelling")
-
-# skim (df)
-
+ 
 # DIM & fact tabellen ----
 organisaties <- df %>%
   distinct (
@@ -284,13 +286,14 @@ lokaties <- lokaties %>%
     by = c("lpostcode" = "PC4")
   ) %>% 
   rename (stedelijk = STED) %>% 
-  mutate (stedelijk = factor(case_when(
+  mutate (stedelijk = as.numeric(stedelijk)) %>% 
+  mutate (fstedelijk = factor(case_when(
     stedelijk == 1 ~ "Zeer sterk",
     stedelijk == 2 ~ "Sterk",
     stedelijk == 3 ~ "Matig",
     stedelijk == 4 ~ "Weinig", 
     stedelijk == 5 ~ "Niet" ))) %>% 
-  mutate(stedelijk = ordered (stedelijk, levels =
+  mutate(fstedelijk = ordered (fstedelijk, levels =
                                 c("Zeer sterk", 
                                   "Sterk",
                                   "Matig",
@@ -298,3 +301,30 @@ lokaties <- lokaties %>%
                                   "Niet"
                                  )))
 
+
+# Organisaties: aanvullen en opschonen ----------------------------------------
+organisaties <- organisaties %>% 
+# Voeg aantal locaties, aantal afdelingen en aantal clienten toe
+# Mate van stedelijkheid wordt een gemiddelde van de lokaties. 
+# Te overwegen: gewogen gemiddelde...
+left_join(
+  select(lokaties, 
+         organisatie_ID, 
+         lokatie_ID, 
+         nafdelingen, 
+         nclienten,
+         stedelijk),
+  by = 'organisatie_ID'
+) %>% 
+  group_by(across(c(
+    - lokatie_ID,
+    - nafdelingen, 
+    - nclienten,
+    - stedelijk
+  ))) %>% 
+  summarise(
+    nLokaties = n(),
+    nAfdelingen = sum(nafdelingen, na.rm = TRUE), 
+    nClienten = sum (nclienten, na.rm = TRUE),
+    Stedelijk = round(mean (stedelijk, na.rm = TRUE),1)
+  )
