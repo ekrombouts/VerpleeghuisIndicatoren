@@ -1,8 +1,8 @@
 # Grootte locaties in de stad vs platteland -----------------------------------
 ggplot(
-  data = dlokaties,
+  data = lokaties,
   mapping = aes(
-    x = stedelijk,
+    x = fstedelijk,
     y = nclienten
   )
 ) +
@@ -15,7 +15,7 @@ ggplot(
 # Highlight  -------------------------------------------------------------
 # Lokaties
   # De Werf = 485
-highlight_df <- dlokaties %>% 
+highlight_df <- lokaties %>% 
   filter (lokatie_ID == 485) # De Werf
 
 # Organisaties
@@ -36,9 +36,11 @@ lokaties %>%
                  aes(nclienten),
                  fill = 'orange',
                  alpha = 0.8) +
-  scale_x_continuous(expand = c(0, 0)) +
+  scale_x_continuous(breaks = seq(0,500,40), 
+                     minor_breaks = seq(0,500,8), 
+                     expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
-  theme_classic() +
+  theme_bw() +
   labs (title = "Grootte lokaties: Aantal clienten per lokatie",
         x = "Aantal clienten",
         y = 'frequentie') 
@@ -46,13 +48,13 @@ lokaties %>%
   
 # Stedelijk -------------------------------------------------------------------
 # Categorie
-dlokaties %>%
+lokaties %>%
   drop_na(stedelijk) %>% 
-  ggplot(aes (x = stedelijk)) +
+  ggplot(aes (x = fstedelijk)) +
   geom_bar(fill = '#061268',
            alpha = 0.8) +
   geom_dotplot(data = highlight_df,
-               aes(stedelijk),
+               aes(fstedelijk),
                fill = 'orange') +
 #  coord_flip() +
   theme_classic() +
@@ -61,7 +63,7 @@ dlokaties %>%
         y = NULL)
 
  # Aantal clienten per afdeling - per afdeling ---------------------------------
- dlokaties %>% 
+ lokaties %>% 
   ggplot(aes(nafdelingen, cltPerAfd)) +
   geom_point()
 

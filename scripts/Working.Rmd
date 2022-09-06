@@ -1,5 +1,18 @@
-source ('scripts/LadenEnOpschonen.R')
-source ('scripts/Decubitus.R')
+---
+title: "Working"
+author: "Eva Rombouts"
+date: "2022-09-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r sourcen laden en packages, include=FALSE}
+source ('LadenEnOpschonen.R')
+source ('Decubitus.R')
 
 # install.packages("naniar")
 library(naniar)
@@ -9,8 +22,10 @@ library(mice)
 library(naniar)
 
 rm (df, dfact, cbs_postcode)
+```
 
-# Vul decubitustabel aan met relevante gegevens van lokatie en organisatie ----
+Vul decubitustabel aan met lokatiegegevens en organisatie_ID
+```{r aanvullen met lokatiegegevens, echo=FALSE}
 LocDec <- decubitus %>%
   left_join(
     select(
@@ -28,11 +43,13 @@ LocDec <- decubitus %>%
   rename (ogekozen = opmerking_gekozen,
           operc = opmerking_percentage)
 
+head(LocDec, 2)
 # names(LocDec)
 
+```
 
-# Bestudeer gekozen -----------------------------------------------------------
-## Beslissing op lokatie of organisatieniveau? ----
+Bestudeer gekozen. Wordt de beslissing op lokatie of organisatieniveau genomen?
+```{r keuze org of loc?, echo=FALSE}
 aap <- LocDec %>%
   group_by(organisatie_ID, gekozen) %>%
   summarise(n = n()) %>%
@@ -43,14 +60,19 @@ aap <- LocDec %>%
           gFALSE = !is.na(gFALSE)) %>%
   group_by(gTRUE, gFALSE) %>%
   summarise((n = n()))
+print (aap)
 rm (aap)
 # --> Op organisatieniveau. Slechts 22 van de 495 organisaties hebben voor
 # sommige lokaties wel en voor andere lokaties niet gekozen voor decubitus,
 # 239 hebben wel gekozen, 234 niet.
 
-# Vraag: Is er een verschil tussen de organisaties die decubitus wel of niet ----
-# hebben gekozen?
-# In: # aantal afdelingen of clienten?
+```
+
+Bestudeer het verschil tussen lokaties die wel of niet voor decubitus 
+hebben gekozen.  
+In: aantal afdelingen of aantal clienten.  
+(NB: analyse op lokatieniveau, terwijl organisatie beslist... korrel zout dus)
+```{r wel/geen decubitus per lokatie, echo=FALSE}
 
 # In getallen
 LocDec %>%
@@ -88,10 +110,25 @@ LocDec %>%
 boxplot(nafdelingen ~ gekozen, data = LocDec,
         col = 'bisque')
 
-
 # t-test
 LocDec %>%
   filter (gekozen == "TRUE") %>%
   select (nclienten) %>%
   mutate (nclienten = log (nclienten)) %>%
   t.test (mu = 3.75)
+
+```
+
+Bestudeer missing values
+```{r missings}
+LocDec %>% 
+  filter(complete.cases(.))
+
+LocDec %>% 
+  select (-ogekozen, -operc) %>% 
+  arrange(organisatie_ID,lokatie_ID) %>% 
+  md.pattern()
+
+vis_miss(LocDec)
+```
+
