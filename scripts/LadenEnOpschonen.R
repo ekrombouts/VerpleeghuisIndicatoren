@@ -11,22 +11,26 @@
 # verzamelen en opsturen. Het doel van deze actie is niet zozeer om te 
 # vergelijken of een organisatie "het wel goed doet", maar eerder als een 
 # middel om te kunnen reflecteren. 
+# Data van 2020 genomen (inmiddels zijn data van 2021 bekend, dit volgt...)
 
 # Projectvraag: Presenteer deze gegevens op een overzichtelijke manier. 
 # Waar mogelijk, geef de mogelijkheid om zorgorganisatie A te vergelijken met 
 # andere - vergelijkbare - zorgorganisaties. 
 
-# Packages ----
-library(tidyverse) 
-library(here)
-library(skimr)
-library(janitor)
-library(readxl)
+# Packages ----------------------------------------------------------------
+
+library (tidyverse) 
+library (here)
+library (skimr)
+library (janitor)
+library (readxl)
 library (lubridate)
-library(mice)
+library (mice)
+library (todor)
+library (clipr)
 # library(dm)
 
-# Laad data ----
+# Data laden --------------------------------------------------------------
 # https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg#verslagjaar-2020
 df <- 
   read_excel(here("data", 
@@ -45,7 +49,8 @@ cbs_postcode <-
 # Eerste rij bevat uitleg, eruit
 cbs_postcode <- cbs_postcode[-1, ]
 
-# Opschonen ----
+# Opschonen ---------------------------------------------------------------
+
 df <- df %>%
   # Aanpassen kolomnamen
   clean_names() %>% # Uit de janitor package
@@ -91,8 +96,9 @@ df <- df %>%
          lvestigingsnummer = as.character(lvestigingsnummer),
          lagb = as.character(lagb)
   ) 
- 
-# DIM & fact tabellen ----
+
+# DIM en Fact tabellen ----------------------------------------------------
+## Organisaties ------------------------------------------------------------
 organisaties <- df %>%
   distinct (
     organisatie,
@@ -104,13 +110,16 @@ organisaties <- df %>%
 # organisatie is uniek gedefinieerd door zijn okvk
 # organisaties %>% count (okvk) %>% filter (n>1)
 
+## Lokaties ----------------------------------------------------------------
 # De variabele locaties in de df is rommelig. 
 # Door de platte structuur van de tabel, waarin indicatoren zijn opgenomen
 # op zowel locatieniveau als organisatieniveau is het soms niet helemaal 
 # duidelijk wat een daadwerkelijke locatie is. Voor de indcatorset 
 # Personeelssamenstelling zijn namelijk dummie locaties aangemaakt, meestal 
 # (maar niet altijd) aangeduid met "Concernniveau: "
-# Gekozen om alleen de locaties van de Indicatorset Basisveiligheid mee te nemen. 
+
+# Uiteindelijk besloten om zowel lokaties als organisaties in de tabel te houden.
+# te differentieren met de variabele IsOrg
 lokaties <- df %>%
   #filter (indicatorset == "Basisveiligheid") %>% 
   mutate (IsOrg = (indicatorset == "Personeelssamenstelling")) %>% 
@@ -128,6 +137,7 @@ lokaties <- df %>%
 # lokatie is uniek gedefinieerd door locatie, lvestigingsnummer, lagb
 # lokaties %>% count (locatie, lvestigingsnummer, lagb) %>% filter (n>1) 
 
+## Indicatorsets -----------------------------------------------------------
 indicatorsets <- df %>%
   distinct(
     indicatorset_code, 
@@ -135,6 +145,7 @@ indicatorsets <- df %>%
   ) %>%
   rowid_to_column("indicatorset_ID")
 
+## Themas ------------------------------------------------------------------
 themas <- df %>%
   distinct(thema, indicatorset_code) %>%
   rowid_to_column("thema_ID") %>%
@@ -147,6 +158,7 @@ themas <- df %>%
     -indicatorset_code
   )
 
+## Indicatoren -------------------------------------------------------------
 indicatoren <- df %>%
   distinct (
     icode, 
@@ -167,6 +179,9 @@ indicatoren <- df %>%
 # indicator is uniek gedefinieerd door icode
 # indicatoren %>% count (icode) %>% filter (n>1) 
 
+## Fact tabel --------------------------------------------------------------
+# Dit is de oorspronkelijke tabel - in long format - gestript van de DIM 
+# kolommen
 dfact <- df %>%
   # Maak foreign key naar lokaties
   left_join(
@@ -208,7 +223,8 @@ dfact <- df %>%
     - aanlever_frequentie
   )
 
-# Maak aparte tabellen voor Basisveiligheid en Personeelssamenstelling. 
+## Aparte tabellen Personeelssamenstelling en Basisveiligheid ---------------
+# Toch ook weer thema en indicatorset ID erbij, dat joint makkelijker later
 bv <- dfact %>% 
   left_join(
     select (indicatoren, indicator_ID, thema_ID),
@@ -218,7 +234,7 @@ bv <- dfact %>%
     select (themas, thema_ID, indicatorset_ID),
     by = "thema_ID"
   ) 
-  
+
 ps <- bv %>%
   filter (indicatorset_ID == 2) %>% 
   select (
@@ -233,9 +249,7 @@ bv <- bv %>%
     - indicatorset_ID
   )
 
-
-# Lokaties: aanvullen en opschonen ---------------------------------------------
-
+## Lokaties: aanvullen en opschonen -------------------------------------------
 # Om de grootte van de locatie in te schatten zijn twee soorten gegevens bekend. 
 # Medicatieveiligheid en voedselvoorkeuren zijn verplichte indicatoren en 
 # wordt ingevuld op respectievelijk afdelings- en op clientniveau. 
@@ -272,13 +286,13 @@ lokaties <- lokaties %>%
   # herbereken cltPerAfd
   mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
   # Omdat het toch twijfelachtig blijft maak ik hier maar een level van
-  mutate (nAfd = factor(case_when(
+  mutate (fafdelingen = factor(case_when(
     nafdelingen == 1 ~ '1',
     nafdelingen == 2 ~ '2',
     nafdelingen >= 3 & nafdelingen <= 5 ~ "3-5",
     nafdelingen >= 6 & nafdelingen <= 8 ~ "6-8",
     nafdelingen > 8 ~ ">8"))) %>% 
-  mutate(nAfd = ordered (nAfd, levels = 
+  mutate(fafdelingen = ordered (fafdelingen, levels = 
                            c( "1",   "2",   "3-5", "6-8", ">8" ))) %>% 
   # Controleer aantal clienten: Gecontroleerd met histogram en eyeballing. 
   # Minimaal aantal clienten is 10, lijkt me reeel. 
@@ -306,7 +320,7 @@ lokaties <- lokaties %>%
                                  )))
 
 
-# Organisaties: aanvullen en opschonen ----------------------------------------
+## Organisaties: aanvullen en opschonen ----------------------------------------
 organisaties <- organisaties %>% 
 # Voeg aantal locaties, aantal afdelingen en aantal clienten toe
 # Mate van stedelijkheid wordt een gemiddelde van de lokaties. 
