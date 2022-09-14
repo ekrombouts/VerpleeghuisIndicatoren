@@ -170,12 +170,85 @@ indicatoren <- df %>%
     thema
   ) %>%
   rowid_to_column("indicator_ID") %>% 
-  # Maak foreign key naar themas
+  # Maak foreign key naar themas en naar indicatorset_ID
   left_join(
-    select (themas, thema_ID, thema),
+    select (themas, thema_ID, thema, indicatorset_ID),
     by = "thema"
   ) %>%
-  select (-thema)
+  select (-thema) %>% 
+  mutate (ind = recode(indicator_ID,
+                       `1` = "DecGek",
+                       `2` = "DecPercC",
+                       `3` = "DecCasGek",
+                       `4` = "DecCasPercA",
+                       `5` = "ACPPercC",
+                       `6` = "MedFtPercA",
+                       `7` = "MedRevGek",
+                       `8` = "MedRevPercC",
+                       `9` = "MMGekozen",
+                       `10` = "MMMechanischPercC",
+                       `11` = "MMFysiekPercC",
+                       `12` = "MMFarmacPercC",
+                       `13` = "MMPsychPercC",
+                       `14` = "MMElecPercC",
+                       `15` = "MM1op1PercC",
+                       `16` = "MMAfzonPercC",
+                       `17` = "MMOverigPercC",
+                       `18` = "MMOverigTekst",
+                       `19` = "VrijBepGek",
+                       `20` = "VrijBepTekst",
+                       `21` = "VrijBevGek",
+                       `22` = "VrijBevTekst",
+                       `23` = "ContGek",
+                       `24` = "ContWPlanPercC",
+                       `25` = "ContGPlanPercC",
+                       `26` = "ContOPlanPercC",
+                       `27` = "ContVoorkeurenJN",
+                       `28` = "ContOndersteuningJN",
+                       `29` = "ContZelfstandigJN",
+                       `30` = "ContMateriaalJN",
+                       `31` = "ContAndersJN",
+                       `32` = "VoedWVoorkeurPercC",
+                       `33` = "VoedGVoorkeurPercC",
+                       `34` = "VoedOVoorkeurPercC",
+                       `35` = "VoedWelkJN",
+                       `36` = "VoedVormJN",
+                       `37` = "VoedHulpJN",
+                       `38` = "VoedTijdPlaatsJN",
+                       `39` = "VoedOverigJN",
+                       `40` = "KwalVerslURL",
+                       `41` = "CENPS8910PercR",
+                       `42` = "CENPSJaPercR",
+                       `43` = "CEScoreGet",
+                       `44` = "CEnRespondenten",
+                       `45` = "CEOpm",
+                       `46` = "PSnMedew",
+                       `47` = "PSnFTE",
+                       `48` = "PSTijdPerc",
+                       `49` = "PSPnilPerc",
+                       `50` = "PSPnilKostPerc",
+                       `51` = "PSGemContr",
+                       `52` = "PSNiv1",
+                       `53` = "PSNiv2",
+                       `54` = "PSNiv3",
+                       `55` = "PSNiv4",
+                       `56` = "PSNiv5",
+                       `57` = "PSNiv6",
+                       `58` = "PSBehandel",
+                       `59` = "PSOverig",
+                       `60` = "PSLeerling",
+                       `61` = "PSnStag",
+                       `62` = "PSnVrijw",
+                       `63` = "PSVerzuimPerc",
+                       `64` = "PSVerzuimFreq",
+                       `65` = "PSInstroom",
+                       `66` = "PSUitstroom",
+                       `67` = "PSDoorstroom",
+                       `68` = "PSFTEperCt",
+                       
+  )
+          ) 
+  
 # indicator is uniek gedefinieerd door icode
 # indicatoren %>% count (icode) %>% filter (n>1) 
 
@@ -188,7 +261,6 @@ dfact <- df %>%
     select (lokaties, lokatie_ID, locatie, lvestigingsnummer, lagb, organisatie_ID),
     by = c ("locatie", "lvestigingsnummer", "lagb")
   ) %>%
-  # FIXME door deze join worden de lokatie/organisatiegegevens verwijderd
   select (
     - locatie,
     - lvestigingsnummer, 
@@ -347,3 +419,4 @@ left_join(
     Stedelijk = round(mean (stedelijk, na.rm = TRUE),1)
   )
 
+rm (df, dfact, cbs_postcode)
