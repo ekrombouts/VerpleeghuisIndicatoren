@@ -4,8 +4,6 @@
 # Auteur: Eva Rombouts
 # Oefenproject in het kader van leren R en R Studio
 
-source ('scripts/LadenEnOpschonen.R')
-
 # Decubitus is een keuze indicator. Het thema heeft 2 indicatoren:
 # Gekozen ja/nee en het percentage.
 
@@ -84,16 +82,12 @@ skim (decubitus)
 # Wat opvalt is dat er dan ook 1113 missing percentages zijn, 
 # maar 1152 missing tellers & noemers.
 
-# VRAAGje -----------------------------------------------------------------
-# Moet je bij subsetten in baseR echt altijd helemaal uitschrijven? (dus met $)
-# For real? 
 aap <- decubitus [(is.na(decubitus$teller)|
                      is.na(decubitus$noemer))
                   &!is.na(decubitus$percentage),]
 
 # --> m.i. geen geldige gegevens, dus aanpassen naar missing. 
-# !!VRAAG -------------------------------------------------------------------
-# Hier gebeurt iets geks! 
+# VRAAG !! Hier gebeurt iets geks! Hoe pas je aan naar missing?
 noot <- decubitus %>% 
   mutate (percentage = 
             #percentage) --> dit mag gewoon...
@@ -115,11 +109,6 @@ noot <- decubitus %>%
   )
 
 table(decubitus$gekozen, is.na(decubitus$percentage))
-
-# VRAAG -------------------------------------------------------------------
-# Zie functie fln () 
-# Kan ik een comma en line/break separated lijstje naar mijn clipboard 
-# krijgen? (doel: variabelnamen copy/pasten)
 
 
 # Analyseer ---------------------------------------------------------------
