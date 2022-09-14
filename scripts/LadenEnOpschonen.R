@@ -4,6 +4,7 @@
 # Oefenproject in het kader van leren R en R Studio
 # Voornaamste gebruikte bronnen voor het leren van R: 
 # Coursera cursus Johns Hopkins, R Ladies Sidney en R Programming 101
+# Vanaf sep 2022 EQI postacademische opleiding Data Science & Business Analytics
 
 # Bron data: https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg  
 # Dit betreft de kwaliteitsindicatoren die zorginstellingen jaarlijks moeten 
@@ -21,8 +22,9 @@ library(here)
 library(skimr)
 library(janitor)
 library(readxl)
-# library(dm)
 library (lubridate)
+library(mice)
+# library(dm)
 
 # Laad data ----
 # https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg#verslagjaar-2020
@@ -110,10 +112,11 @@ organisaties <- df %>%
 # (maar niet altijd) aangeduid met "Concernniveau: "
 # Gekozen om alleen de locaties van de Indicatorset Basisveiligheid mee te nemen. 
 lokaties <- df %>%
-  filter (indicatorset == "Basisveiligheid") %>% 
+  #filter (indicatorset == "Basisveiligheid") %>% 
+  mutate (IsOrg = (indicatorset == "Personeelssamenstelling")) %>% 
   distinct(
     locatie, lvestigingsnummer, lpostcode, lhuisnummer, 
-    lplaats, lagb, okvk
+    lplaats, lagb, okvk, IsOrg
   ) %>%
   rowid_to_column("lokatie_ID") %>%
   # Maak foreign key naar organisaties
@@ -167,9 +170,10 @@ indicatoren <- df %>%
 dfact <- df %>%
   # Maak foreign key naar lokaties
   left_join(
-    select (lokaties, lokatie_ID, locatie, lvestigingsnummer, lagb),
+    select (lokaties, lokatie_ID, locatie, lvestigingsnummer, lagb, organisatie_ID),
     by = c ("locatie", "lvestigingsnummer", "lagb")
   ) %>%
+  # FIXME door deze join worden de lokatie/organisatiegegevens verwijderd
   select (
     - locatie,
     - lvestigingsnummer, 
@@ -328,3 +332,4 @@ left_join(
     nClienten = sum (nclienten, na.rm = TRUE),
     Stedelijk = round(mean (stedelijk, na.rm = TRUE),1)
   )
+
