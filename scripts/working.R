@@ -1,97 +1,33 @@
-source ('scripts/LadenEnOpschonen.R')
-source ('scripts/Decubitus.R')
-
-# install.packages("naniar")
-library(naniar)
-# install.packages("mice")
-library(mice)
-# install.packages("naniar")
-library(naniar)
-
-rm (df, dfact, cbs_postcode)
-
-# Vul decubitustabel aan met relevante gegevens van lokatie en organisatie ----
-LocDec <- decubitus %>%
-  left_join(
-    select(
-      lokaties,
-      lokatie_ID,
-      locatie,
-      nafdelingen,
-      nclienten,
-      fstedelijk,
-      organisatie_ID
-    ),
-    by = 'lokatie_ID'
-  ) %>%
-  select (13, 1, 9:12, 2, 8, 3:7) %>%
-  rename (ogekozen = opmerking_gekozen,
-          operc = opmerking_percentage)
-
-# names(LocDec)
+# Onderzoek lokaties ----
+# Voor statistiek. 
+# Hst 3 One sample & difference of means test
 
 
-# Bestudeer gekozen -----------------------------------------------------------
-## Beslissing op lokatie of organisatieniveau? ----
-aap <- LocDec %>%
-  group_by(organisatie_ID, gekozen) %>%
-  summarise(n = n()) %>%
-  pivot_wider(names_from = gekozen,
-              values_from = n,
-              names_prefix = "g") %>%
-  mutate (gTRUE = !is.na(gTRUE),
-          gFALSE = !is.na(gFALSE)) %>%
-  group_by(gTRUE, gFALSE) %>%
-  summarise((n = n()))
-rm (aap)
-# --> Op organisatieniveau. Slechts 22 van de 495 organisaties hebben voor
-# sommige lokaties wel en voor andere lokaties niet gekozen voor decubitus,
-# 239 hebben wel gekozen, 234 niet.
+#' Hypothese1: De gemiddelde lokatie-grootte is 30 clienten, met een sd van 15.
+#' Type 1 fout: rejecting while true
+mean (lokaties$nclienten, na.rm = T)
+median(lokaties$nclienten, na.rm = T)
+sd (lokaties$nclienten, na.rm = T)
 
-# Vraag: Is er een verschil tussen de organisaties die decubitus wel of niet ----
-# hebben gekozen?
-# In: # aantal afdelingen of clienten?
+lokaties %>% 
+  ggplot(aes(nclienten)) +
+  geom_histogram(bins = 50) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme_eva()
+# VRAAG Origin naar 0, kan dit niet korter?
 
-# In getallen
-LocDec %>%
-  group_by(gekozen) %>%
-  summarise (
-    n = n(),
-    mean_nAfd = mean (nafdelingen, na.rm = TRUE),
-    med_nAfd = median (nafdelingen, na.rm = TRUE),
-    mean_nCl = mean (nclienten, na.rm = TRUE),
-    med_nCl = median (nclienten, na.rm = TRUE),
-    lmean_nAfd = mean (log(nafdelingen), na.rm = TRUE),
-    lmed_nAfd = median (log(nafdelingen), na.rm = TRUE),
-    lmean_nCl = mean (log(nclienten), na.rm = TRUE),
-    lmed_nCl = median (log(nclienten), na.rm = TRUE)
-  )
+library(Rmisc)
+LocGrootte <- summarySE(lokaties, "nclienten", na.rm = T)
+LocGrootte
 
-# In plaatjes
-LocDec %>%
-  ggplot(aes(gekozen, nafdelingen)) +
-  geom_boxplot() +
-  stat_summary(fun.y = "mean")
+LocGrootte %>% 
+  ggplot(aes(factor(""), nclienten)) +
+  geom_errorbar(aes(ymin = nclienten - ci, ymax = nclienten + ci), width = 1) +
+  geom_point() +
+  scale_x_discrete("") + 
+  scale_y_continuous(name = "Gemiddeld aantal clienten per locatie",
+                     breaks = scales::pretty_breaks(n=8))
+# HIER ben ik voor statistiek ------
 
-LocDec %>%
-  ggplot (aes(gekozen, nclienten)) +
-  geom_boxplot() +
-  stat_summary(fun.y = "mean")
-
-LocDec %>%
-  mutate(nclienten = log(nclienten)) %>%
-  ggplot (aes(nclienten,
-              color = gekozen)) +
-  geom_density()
-
-# base-R
-boxplot(nafdelingen ~ gekozen, data = LocDec,
-        col = 'bisque')
-
-
-# t-test
-LocDec %>%
-  filter (gekozen == "TRUE") %>%
-  select (nclienten) %>%
-  mutate (nclienten = log (nclienten)) %>%
-  t.test (mu = 3.75)
+#' Hypothese2: Stedelijke gebieden hebben grotere lokaties
