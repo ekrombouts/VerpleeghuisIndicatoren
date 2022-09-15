@@ -1,24 +1,25 @@
 # Verpleeghuisindicatoren -----------------------------------------------------
-# Datum: Augustus 2022
+# Datum: Augustus 2022 - (TODO: project afronden)
 # Auteur: Eva Rombouts
 # Oefenproject in het kader van leren R en R Studio
 # Voornaamste gebruikte bronnen voor het leren van R: 
-# Coursera cursus Johns Hopkins, R Ladies Sidney en R Programming 101
-# Vanaf sep 2022 EQI postacademische opleiding Data Science & Business Analytics
+  # Coursera cursus Johns Hopkins
+  # R Ladies Sidney 
+  # R Programming 101
+  # Vanaf sep 2022 EQI postacademische opleiding Data Science & Business Analytics
 
 # Bron data: https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg  
 # Dit betreft de kwaliteitsindicatoren die zorginstellingen jaarlijks moeten 
-# verzamelen en opsturen. Het doel van deze actie is niet zozeer om te 
+# verzamelen en opsturen. Het doel van de indicatoren is niet zozeer om te 
 # vergelijken of een organisatie "het wel goed doet", maar eerder als een 
 # middel om te kunnen reflecteren. 
-# Data van 2020 genomen (inmiddels zijn data van 2021 bekend, dit volgt...)
+# Data van 2020 genomen (inmiddels zijn data van 2021 bekend, OOIT...)
 
 # Projectvraag: Presenteer deze gegevens op een overzichtelijke manier. 
 # Waar mogelijk, geef de mogelijkheid om zorgorganisatie A te vergelijken met 
 # andere - vergelijkbare - zorgorganisaties. 
 
 # Packages ----------------------------------------------------------------
-
 library (tidyverse) 
 library (here)
 library (skimr)
@@ -31,6 +32,7 @@ library (clipr)
 # library(dm)
 
 # Data laden --------------------------------------------------------------
+# TODO Van internet laden
 # https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg#verslagjaar-2020
 df <- 
   read_excel(here("data", 
@@ -43,14 +45,22 @@ cbs_postcode <-
   read_excel(here("data",
                   "cbs_pc4_2020_v1.xlsx"),
              sheet = "PC4_2020_v1", 
-             na = "-99997", # Deze data is met opzet door CBS verborgen gehouden
-             # ivm privacy
+             na = "-99997", 
+             # Deze data is door CBS verborgen gehouden ivm privacy
              skip = 8)
 # Eerste rij bevat uitleg, eruit
 cbs_postcode <- cbs_postcode[-1, ]
 
 # Opschonen ---------------------------------------------------------------
-
+# De tabel is een platte, lange tabel, waarin twee indicatorsets door elkaar
+# heen staan. Per rij wordt een indicator weergegeven, of soms een deel van 
+# een indicator. Per lokatie zijn er 45 rijen, per organisatie 23. 
+# Per rij staan dus verschillende type observaties en één observatie staat
+# over verschillende rijen. 
+# Hieronder worden eerst twee tabellen gemaakt, één voor elke indicatorset, 
+# met per rij een enkele set observaties.
+# Basisveiligheid: Op lokatieniveau
+# Personeelssamenstelling: Op organisatieniveau.
 df <- df %>%
   # Aanpassen kolomnamen
   clean_names() %>% # Uit de janitor package
@@ -97,6 +107,45 @@ df <- df %>%
          lagb = as.character(lagb)
   ) 
 
+# Foutieve invoer herstellen ----------------------------------------------
+# Onderstaande organisatie / lokatie koppels gaven problemen
+# Careyn heeft ten onrechte meerdere concerns ingevoerd. 
+df <- df %>% 
+  filter (!(locatie %in% c(
+    "Concernniveau: Aveant B.V.", 
+    "Concernniveau: Careyn DWO/NWN B.V.",
+    "Concernniveau: Careyn Zuid-Hollandse eilanden B.V.",
+    "Concernniveau: Zuwe Zorg B.V." 
+    )))
+
+# King Arthur Groep heeft dezelfde gegevens voor organisatie en lokatie
+# opgegeven, wat problemen geeft met unieke lokaties
+df <- df %>% 
+  mutate (locatie = if_else(
+    locatie == "Stichting King Arthur Groep" & indicatorset == "Personeelssamenstelling", 
+    true = "Concernniveau: Stichting King Arthur Groep",
+    false = locatie
+  )) %>% 
+  mutate (locatie = if_else(
+    locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" & indicatorset == "Basisveiligheid", 
+    true = "Stichting Protestants-Christelijk Zorgcentrum 't Anker",
+    false = locatie
+  ))
+
+# Thebe heeft apart voor concernniveaus gerapporteerd, zonder per lokatie te 
+# specificeren bij welk concern ze horen. Uitgegaan van postcodes.
+df <- df %>%
+  mutate(organisatie = if_else(
+    organisatie == "Stichting Thebe Wonen en Zorg" & str_sub(lpostcode,1,1) == "4",
+    true = "Stichting Thebe Wonen en Zorg - West",
+    false = organisatie
+  ))%>%
+  mutate(organisatie = if_else(
+    organisatie == "Stichting Thebe Wonen en Zorg" & str_sub(lpostcode,1,1) == "5",
+    true = "Stichting Thebe Wonen en Zorg - Midden",
+    false = organisatie
+  ))
+  
 # DIM en Fact tabellen ----------------------------------------------------
 ## Organisaties ------------------------------------------------------------
 organisaties <- df %>%
@@ -107,8 +156,8 @@ organisaties <- df %>%
     type_zorgaanbieder
   ) %>%
   rowid_to_column("organisatie_ID")
-# organisatie is uniek gedefinieerd door zijn okvk
-# organisaties %>% count (okvk) %>% filter (n>1)
+# organisatie is uniek gedefinieerd door okvk en organisatie
+# organisaties %>% count (okvk, organisatie) %>% filter (n>1)
 
 ## Lokaties ----------------------------------------------------------------
 # De variabele locaties in de df is rommelig. 
@@ -125,17 +174,28 @@ lokaties <- df %>%
   mutate (IsOrg = (indicatorset == "Personeelssamenstelling")) %>% 
   distinct(
     locatie, lvestigingsnummer, lpostcode, lhuisnummer, 
-    lplaats, lagb, okvk, IsOrg
+    lplaats, lagb, okvk, organisatie, IsOrg
   ) %>%
   rowid_to_column("lokatie_ID") %>%
   # Maak foreign key naar organisaties
   left_join(
-    select (organisaties, organisatie_ID, okvk),
-    by = "okvk"
-  ) %>%
-  select (-okvk) 
+    select (organisaties, organisatie_ID, okvk, organisatie),
+    by = c("okvk", "organisatie")
+  ) %>% 
+  select (
+    lokatie_ID,
+    organisatie_ID,
+    locatie,
+    lvestigingsnummer,
+    lpostcode,
+    lhuisnummer,
+    lplaats,
+    lagb,
+    IsOrg
+  )
 # lokatie is uniek gedefinieerd door locatie, lvestigingsnummer, lagb
-# lokaties %>% count (locatie, lvestigingsnummer, lagb) %>% filter (n>1) 
+# hieraan is later okvk toegevoegd.
+# lokaties %>% count (locatie, lvestigingsnummer, lagb, okvk) %>% filter (n>1) 
 
 ## Indicatorsets -----------------------------------------------------------
 indicatorsets <- df %>%
@@ -176,6 +236,8 @@ indicatoren <- df %>%
     by = "thema"
   ) %>%
   select (-thema) %>% 
+  # Extra variabele met korte naam voor de indicator. Deze zal later als 
+  # kolomnaam worden gebruikt voor pivot-wider
   mutate (ind = recode(indicator_ID,
                        `1` = "DecGek",
                        `2` = "DecPercC",
@@ -246,9 +308,7 @@ indicatoren <- df %>%
                        `67` = "PSDoorstroom",
                        `68` = "PSFTEperCt",
                        
-  )
-          ) 
-  
+  )) 
 # indicator is uniek gedefinieerd door icode
 # indicatoren %>% count (icode) %>% filter (n>1) 
 
@@ -258,7 +318,9 @@ indicatoren <- df %>%
 dfact <- df %>%
   # Maak foreign key naar lokaties
   left_join(
-    select (lokaties, lokatie_ID, locatie, lvestigingsnummer, lagb, organisatie_ID),
+    select (lokaties, lokatie_ID, 
+            locatie, lvestigingsnummer, lagb, 
+            organisatie_ID),
     by = c ("locatie", "lvestigingsnummer", "lagb")
   ) %>%
   select (
@@ -344,19 +406,6 @@ lokaties <- lokaties %>%
   select (-indicator_ID) %>% 
   # en bereken het aantal clienten per afdeling
   mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
-  # grootte van de lokaties gecontroleerd middels grafiek en eyeballing tabel.
-  # Allereerst lokaties met een abnormaal hoog aantal afdelingen. 
-  # Organisatie 16 heeft niet goed gerapporteerd (heeft totaal aantal afdelingen
-  # van organisatie genomen), dus deze waarde wordt verwijderd. 
-  # De daarna hoogste aantal afdelingen hebben een reeel aantal clienten per
-  # afdeling, dus dat zal kloppen
-  mutate(nafdelingen = replace(nafdelingen, organisatie_ID==16, NA)) %>% 
-  # Vervolgens abnormaal hoog aantal clienten per afdeling
-  # > 75 is niet reeel, hieronder zie je dat er af en toe wel meerdere afdelingen
-  # zijn. 
-  mutate(nafdelingen = replace(nafdelingen, cltPerAfd>75, NA)) %>% 
-  # herbereken cltPerAfd
-  mutate (cltPerAfd = round(nclienten/nafdelingen)) %>% 
   # Omdat het toch twijfelachtig blijft maak ik hier maar een level van
   mutate (fafdelingen = factor(case_when(
     nafdelingen == 1 ~ '1',
@@ -391,7 +440,6 @@ lokaties <- lokaties %>%
                                   "Niet"
                                  )))
 
-
 ## Organisaties: aanvullen en opschonen ----------------------------------------
 organisaties <- organisaties %>% 
 # Voeg aantal locaties, aantal afdelingen en aantal clienten toe
@@ -417,6 +465,353 @@ left_join(
     nAfdelingen = sum(nafdelingen, na.rm = TRUE), 
     nClienten = sum (nclienten, na.rm = TRUE),
     Stedelijk = round(mean (stedelijk, na.rm = TRUE),1)
+  ) %>% 
+  ungroup()
+
+# Basisveiligheid ---------------------------------------------------------
+# Long to wide. 105707 rijen van 2349 lokaties = 45 rijen/indicatoren per lokatie
+# Aangezien het verschillende datatypes betreft heb ik het opgesplitst. 
+# Eerst de percentages: 
+bv1 <- bv %>% 
+  select(
+    lokatie_ID,
+    organisatie_ID,
+    indicator_ID,
+    iwaarde,
+    teller,
+    noemer
+  ) %>% 
+  left_join(
+    y = select(indicatoren, indicator_ID, ind, ieenheid),
+    by = "indicator_ID"
+  ) %>% 
+  filter(ieenheid == "Percentage") %>% 
+  select (
+    -indicator_ID,
+    -ieenheid
+  ) %>% 
+  # namen worden prefixes, dus even korter maken
+  rename (
+    p = iwaarde,
+    t = teller,
+    n = noemer
+  ) %>% 
+  mutate(p = as.numeric(p)) %>% 
+  pivot_wider(
+    names_from = ind,
+    values_from = c(p, t, n), 
+    names_vary = "slowest"
+  ) 
+
+bv2 <- bv %>% 
+  # Overige numerieke indicatoren. De waarde wordt gewijzigd in numeric 
+  # voor de pivot
+  select(
+    lokatie_ID,
+    organisatie_ID, 
+    indicator_ID,
+    iwaarde
+  ) %>% 
+  left_join(
+    y = select(indicatoren, indicator_ID, ind, ieenheid),
+    by = "indicator_ID"
+  ) %>% 
+  filter(ieenheid == "Aantal" | ieenheid == "Getal") %>% 
+  select (
+    -indicator_ID,
+    -ieenheid
+  ) %>% 
+  mutate (iwaarde = as.numeric(iwaarde)) %>% 
+  pivot_wider(
+    names_from = ind,
+    values_from = c(iwaarde)
+  ) 
+
+bv3 <- bv %>% 
+  # En tot slot de tekstindicatoren 
+  select(
+    lokatie_ID,
+    organisatie_ID, 
+    indicator_ID,
+    iwaarde
+  ) %>% 
+  left_join(
+    y = select(indicatoren, indicator_ID, ind, ieenheid),
+    by = "indicator_ID"
+  ) %>% 
+  filter(ieenheid == "JaNee" | ieenheid == "Tekst") %>% 
+  select (
+    -indicator_ID,
+    -ieenheid
+  ) %>% 
+  pivot_wider(
+    names_from = ind,
+    values_from = c(iwaarde)
+  ) 
+
+BasisVeiligheid <- bv1 %>% 
+  full_join(
+    y = bv2,
+    by = c("lokatie_ID", "organisatie_ID")
+  ) %>% 
+  full_join(
+    y = bv3,
+    by = c("lokatie_ID", "organisatie_ID")
+  ) %>% 
+  select (
+    lokatie_ID,
+    organisatie_ID,
+    # decubitus
+    DecGek,
+    p_DecPercC,
+    t_DecPercC,
+    n_DecPercC,
+    DecCasGek,
+    p_DecCasPercA,
+    t_DecCasPercA,
+    n_DecCasPercA,
+    # beleid / Advanced care planning
+    p_ACPPercC,
+    t_ACPPercC,
+    n_ACPPercC,
+    # medicatieveiligheid
+    p_MedFtPercA,
+    t_MedFtPercA,
+    n_MedFtPercA,
+    MedRevGek,
+    p_MedRevPercC,
+    t_MedRevPercC,
+    n_MedRevPercC,
+    # onvrijwillige zorg / middelen en maatregelen
+    MMGekozen,
+    p_MMMechanischPercC,
+    t_MMMechanischPercC,
+    n_MMMechanischPercC,
+    p_MMFysiekPercC,
+    t_MMFysiekPercC,
+    n_MMFysiekPercC,
+    p_MMFarmacPercC,
+    t_MMFarmacPercC,
+    n_MMFarmacPercC,
+    p_MMPsychPercC,
+    t_MMPsychPercC,
+    n_MMPsychPercC,
+    p_MMElecPercC,
+    t_MMElecPercC,
+    n_MMElecPercC,
+    p_MM1op1PercC,
+    t_MM1op1PercC,
+    n_MM1op1PercC,
+    p_MMAfzonPercC,
+    t_MMAfzonPercC,
+    n_MMAfzonPercC,
+    p_MMOverigPercC,
+    t_MMOverigPercC,
+    n_MMOverigPercC,
+    MMOverigTekst,
+    VrijBepGek,
+    VrijBepTekst,
+    VrijBevGek,
+    VrijBevTekst,
+    # continentie / toiletgang
+    ContGek,
+    p_ContWPlanPercC,
+    t_ContWPlanPercC,
+    n_ContWPlanPercC,
+    p_ContGPlanPercC,
+    t_ContGPlanPercC,
+    n_ContGPlanPercC,
+    p_ContOPlanPercC,
+    t_ContOPlanPercC,
+    n_ContOPlanPercC,
+    ContVoorkeurenJN,
+    ContOndersteuningJN,
+    ContZelfstandigJN,
+    ContMateriaalJN,
+    ContAndersJN,
+    # voedingsvoorkeuren
+    p_VoedWVoorkeurPercC,
+    t_VoedWVoorkeurPercC,
+    n_VoedWVoorkeurPercC,
+    p_VoedGVoorkeurPercC,
+    t_VoedGVoorkeurPercC,
+    n_VoedGVoorkeurPercC,
+    p_VoedOVoorkeurPercC,
+    t_VoedOVoorkeurPercC,
+    n_VoedOVoorkeurPercC,
+    VoedWelkJN,
+    VoedVormJN,
+    VoedHulpJN,
+    VoedTijdPlaatsJN,
+    VoedOverigJN,
+    # kwaliteitsverslag
+    KwalVerslURL,
+    # Clienttevredenheid
+    p_CENPS8910PercR,
+    t_CENPS8910PercR,
+    n_CENPS8910PercR,
+    p_CENPSJaPercR,
+    t_CENPSJaPercR,
+    n_CENPSJaPercR,
+    CEScoreGet,
+    CEnRespondenten,
+    CEOpm
   )
 
-rm (df, dfact, cbs_postcode)
+# Personeelssamenstelling -------------------------------------------------
+# Long to wide: 11316 rijen / 23 rijen/indicatoren = 492. Vier van de 496
+# organisaties hebben kennelijk niet gerapporteerd. 
+ps1 <- ps %>% 
+  # Long to wide, eerst de percentages
+  select(
+    lokatie_ID,
+    organisatie_ID,
+    indicator_ID,
+    iwaarde,
+    teller,
+    noemer
+  ) %>% 
+  left_join(
+    y = select(indicatoren, indicator_ID, ind, ieenheid),
+    by = "indicator_ID"
+  ) %>% 
+  filter(ieenheid == "Percentage") %>% 
+  select (
+    -indicator_ID,
+    -ieenheid
+  ) %>% 
+  rename (
+    p = iwaarde,
+    t = teller,
+    n = noemer
+  ) %>% 
+  mutate(p = as.numeric(p)) %>% 
+  pivot_wider(
+    names_from = ind,
+    values_from = c(p, t, n), 
+    names_vary = "slowest"
+  ) 
+
+ps2 <- ps %>% 
+  # Long to wide: Overige numerieke indicatoren 
+  select(
+    lokatie_ID,
+    organisatie_ID,
+    indicator_ID,
+    iwaarde
+  ) %>% 
+  left_join(
+    y = select(indicatoren, indicator_ID, ind, ieenheid),
+    by = "indicator_ID"
+  ) %>% 
+  filter(ieenheid == "Aantal" | ieenheid == "Getal") %>% 
+  select (
+    -indicator_ID,
+    -ieenheid
+  ) %>% 
+  mutate (iwaarde = as.numeric(iwaarde)) %>% 
+  pivot_wider(
+    names_from = ind,
+    values_from = c(iwaarde)
+  ) 
+
+ps3 <- ps %>% 
+  # Long to wide: Tekstindicatoren 
+  select(
+    lokatie_ID,
+    organisatie_ID,
+    indicator_ID,
+    iwaarde
+  ) %>% 
+  left_join(
+    y = select(indicatoren, indicator_ID, ind, ieenheid),
+    by = "indicator_ID"
+  ) %>% 
+  filter(ieenheid == "JaNee" | ieenheid == "Tekst") %>% 
+  select (
+    -indicator_ID,
+    -ieenheid
+  ) %>% 
+  pivot_wider(
+    names_from = ind,
+    values_from = c(iwaarde)
+  ) 
+
+Personeelssamenstelling <- ps1 %>% 
+  full_join(
+    y = ps2,
+    by = c("lokatie_ID", "organisatie_ID")
+  ) %>% 
+  full_join(
+    y = ps3,
+    by = c("lokatie_ID", "organisatie_ID")
+  ) %>% 
+  # Veel PS percentages hebben dezelfde noemer (muv tijdelijk en kosten)
+  rename (n_PSnoemer = n_PSNiv1) %>% 
+  select(
+    organisatie_ID,
+    lokatie_ID,
+    PSnMedew,
+    PSnFTE,
+    n_PSnoemer, 
+    p_PSTijdPerc,
+    t_PSTijdPerc,
+    n_PSTijdPerc,
+    p_PSPnilPerc,
+    t_PSPnilPerc,
+    p_PSPnilKostPerc,
+    t_PSPnilKostPerc,
+    n_PSPnilKostPerc,
+    PSGemContr,
+    p_PSNiv1,
+    t_PSNiv1,
+    p_PSNiv2,
+    t_PSNiv2,
+    p_PSNiv3,
+    t_PSNiv3,
+    p_PSNiv4,
+    t_PSNiv4,
+    p_PSNiv5,
+    t_PSNiv5,
+    p_PSNiv6,
+    t_PSNiv6,
+    p_PSBehandel,
+    t_PSBehandel,
+    p_PSOverig,
+    t_PSOverig,
+    p_PSLeerling,
+    t_PSLeerling,
+    PSnStag,
+    PSnVrijw,
+    p_PSVerzuimPerc,
+    t_PSVerzuimPerc,
+    n_PSVerzuimPerc,
+    PSVerzuimFreq,
+    p_PSInstroom,
+    t_PSInstroom,
+    n_PSInstroom,
+    p_PSUitstroom,
+    t_PSUitstroom,
+    n_PSUitstroom,
+    p_PSDoorstroom,
+    t_PSDoorstroom,
+    n_PSDoorstroom,
+    PSFTEperCt
+  ) %>% 
+  arrange(organisatie_ID) 
+
+# Personeelssamenstelling samenvoegen met organisatiegegevens -----------
+ps <- organisaties %>% 
+  left_join(
+    Personeelssamenstelling,
+    by = "organisatie_ID"
+  ) %>% 
+  ungroup() %>% 
+  select (
+    -okvk,
+    -oagb,
+    -type_zorgaanbieder
+  )
+Personeelssamenstelling <- ps
+
+rm (bv, bv1, bv2, bv3, ps, ps1, ps2, ps3, df, dfact, cbs_postcode)
