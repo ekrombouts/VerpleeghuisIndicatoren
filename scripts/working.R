@@ -22,6 +22,7 @@ bv1 <- bv %>%
     t = teller,
     n = noemer
   ) %>% 
+  mutate(p = as.numeric(p)) %>% 
   pivot_wider(
     names_from = ind,
     values_from = c(p, t, n), 
