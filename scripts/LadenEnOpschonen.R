@@ -308,7 +308,8 @@ indicatoren <- df %>%
                        `67` = "PSDoorstroom",
                        `68` = "PSFTEperCt",
                        
-  )) 
+  ),
+  .after = inaam) 
 # indicator is uniek gedefinieerd door icode
 # indicatoren %>% count (icode) %>% filter (n>1) 
 
@@ -464,9 +465,9 @@ left_join(
     nLokaties = n(),
     nAfdelingen = sum(nafdelingen, na.rm = TRUE), 
     nClienten = sum (nclienten, na.rm = TRUE),
-    Stedelijk = round(mean (stedelijk, na.rm = TRUE),1)
-  ) %>% 
-  ungroup()
+    Stedelijk = round(mean (stedelijk, na.rm = TRUE),1),
+    .groups = "drop"
+  ) 
 
 # Basisveiligheid ---------------------------------------------------------
 # Long to wide. 105707 rijen van 2349 lokaties = 45 rijen/indicatoren per lokatie
