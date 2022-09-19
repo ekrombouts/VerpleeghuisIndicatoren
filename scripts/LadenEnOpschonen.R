@@ -1,3 +1,5 @@
+# Versie meerdere jaren. Voor nu rolled back...
+
 # Verpleeghuisindicatoren -----------------------------------------------------
 # Datum: Augustus 2022 - (TODO: project afronden)
 # Auteur: Eva Rombouts
@@ -13,7 +15,10 @@
 # verzamelen en opsturen. Het doel van de indicatoren is niet zozeer om te 
 # vergelijken of een organisatie "het wel goed doet", maar eerder als een 
 # middel om te kunnen reflecteren. 
-# Data van 2020 genomen (inmiddels zijn data van 2021 bekend, OOIT...)
+# Data van 2020 genomen (inmiddels zijn data van 2021 bekend --> 
+# Op 19-9 de stap genomen om data van 2021 te gebruiken. 
+# Tevens besloten om geen kopie te maken van mijn script, maar te vertrouwen
+# op git..
 
 # Projectvraag: Presenteer deze gegevens op een overzichtelijke manier. 
 # Waar mogelijk, geef de mogelijkheid om zorgorganisatie A te vergelijken met 
@@ -34,10 +39,34 @@ library (clipr)
 # Data laden --------------------------------------------------------------
 # TODO Van internet laden
 # https://www.zorginzicht.nl/openbare-data/open-data-verpleeghuiszorg#verslagjaar-2020
-df <- 
-  read_excel(here("data", 
+
+df <-
+  read_excel(here("data",
+                  "openbaar-databestand-verpleeghuiszorg-verslagjaar-2021.xlsx"),
+             sheet = "VHZ VJ2021")
+
+#  Verslagjaar 2020
+df2 <-
+  read_excel(here("data",
                   "openbaar-databestand-verpleeghuiszorg-verslagjaar-2020.xlsx"),
              sheet = "verpleeghuiszorg VJ2020")
+
+# Verslagjaar 2019
+df3 <- 
+  read_excel(here("data",
+                  "Openbaar databestand Verpleeghuiszorg verslagjaar 2019.xlsx"))
+df3 <- df3 %>% 
+  rename (LocatieAGBCode = '...13') %>% 
+  relocate(LocatieAGBCode, .after = KvkNummer) %>% 
+  relocate(IndicatorEenheid, .after = IndicatorNaam) %>% 
+  mutate (IndicatorSorteernummer = as.numeric(IndicatorSorteernummer),
+          LocatieAGBCode = as.numeric(LocatieAGBCode), 
+          Bron = as.logical(Bron))
+
+compare_df_cols_same(df, df2, df3)
+
+df <- bind_rows(df, df2, df3)
+rm (df2, df3)
 
 # https://www.cbs.nl/nl-nl/longread/diversen/2021/statistische-gegevens-per-vierkant-en-postcode-2020-2019-2018?onepage=true#c-4--Beschrijving-cijfers
 # tbv stedelijkheid.
@@ -87,7 +116,7 @@ df <- df %>%
   # Aanpassen datatypes
   mutate(begindat = as_date(begindat),
          einddat = as_date(einddat),
-         verslagjaar = as.Date(ISOdate(verslagjaar,12,31)),
+         #verslagjaar = as.Date(ISOdate(verslagjaar,12,31)), Tegen besloten
          indicatorset = factor(case_when(
            indicatorset == 'Verpleeghuiszorg Basisveiligheid' ~
              "Basisveiligheid", 
@@ -110,6 +139,22 @@ df <- df %>%
 # Foutieve invoer herstellen ----------------------------------------------
 # Onderstaande organisatie / lokatie koppels gaven problemen
 # Careyn heeft ten onrechte meerdere concerns ingevoerd. 
+# TODO algemeen maken
+
+# Sommige organisaties hebben dubbel op concernniveau gerapporteerd
+DubOrg <- df %>% 
+  filter (indicatorset == "Personeelssamenstelling") %>% 
+  count (verslagjaar, organisatie, okvk, icode) %>% 
+  filter (n>1) %>% 
+  distinct(organisatie, okvk, verslagjaar, n)
+
+DubOrg <- DubOrg %>% 
+  left_join(df, 
+            by = c("okvk", "organisatie", "verslagjaar")) %>% 
+  filter (indicatorset == "Personeelssamenstelling",
+          inummer == "1.1")
+
+# HANDMATIG !!
 df <- df %>% 
   filter (!(locatie %in% c(
     "Concernniveau: Aveant B.V.", 
@@ -117,20 +162,6 @@ df <- df %>%
     "Concernniveau: Careyn Zuid-Hollandse eilanden B.V.",
     "Concernniveau: Zuwe Zorg B.V." 
     )))
-
-# King Arthur Groep heeft dezelfde gegevens voor organisatie en lokatie
-# opgegeven, wat problemen geeft met unieke lokaties
-df <- df %>% 
-  mutate (locatie = if_else(
-    locatie == "Stichting King Arthur Groep" & indicatorset == "Personeelssamenstelling", 
-    true = "Concernniveau: Stichting King Arthur Groep",
-    false = locatie
-  )) %>% 
-  mutate (locatie = if_else(
-    locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" & indicatorset == "Basisveiligheid", 
-    true = "Stichting Protestants-Christelijk Zorgcentrum 't Anker",
-    false = locatie
-  ))
 
 # Thebe heeft apart voor concernniveaus gerapporteerd, zonder per lokatie te 
 # specificeren bij welk concern ze horen. Uitgegaan van postcodes.
@@ -145,18 +176,35 @@ df <- df %>%
     true = "Stichting Thebe Wonen en Zorg - Midden",
     false = organisatie
   ))
-  
+
+# TODO opschonen
+# King Arthur Groep heeft dezelfde gegevens voor organisatie en lokatie
+# opgegeven, wat problemen geeft met unieke lokaties
+df <- df %>% 
+  mutate (locatie = if_else(
+    locatie == "Stichting King Arthur Groep" & indicatorset == "Personeelssamenstelling", 
+    true = "Concernniveau: Stichting King Arthur Groep",
+    false = locatie
+  )) %>% 
+  mutate (locatie = if_else(
+    locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" & indicatorset == "Basisveiligheid", 
+    true = "Stichting Protestants-Christelijk Zorgcentrum 't Anker",
+    false = locatie
+  ))
+
+
 # DIM en Fact tabellen ----------------------------------------------------
 ## Organisaties ------------------------------------------------------------
 organisaties <- df %>%
-  distinct (
-    organisatie,
+  group_by(
+    organisatie, 
     okvk,
-    oagb, 
     type_zorgaanbieder
-  ) %>%
-  rowid_to_column("organisatie_ID")
-# organisatie is uniek gedefinieerd door okvk en organisatie
+  ) %>% 
+  summarise (oagb = na_if(max(oagb, na.rm = T), 0)) %>% 
+  rowid_to_column("organisatie_ID") %>% 
+  ungroup()
+# organisatie is uniek gedefinieerd door okvk en organisatie, TEST:
 # organisaties %>% count (okvk, organisatie) %>% filter (n>1)
 
 ## Lokaties ----------------------------------------------------------------
@@ -172,10 +220,11 @@ organisaties <- df %>%
 lokaties <- df %>%
   #filter (indicatorset == "Basisveiligheid") %>% 
   mutate (IsOrg = (indicatorset == "Personeelssamenstelling")) %>% 
-  distinct(
+  group_by(
     locatie, lvestigingsnummer, lpostcode, lhuisnummer, 
-    lplaats, lagb, okvk, organisatie, IsOrg
-  ) %>%
+    lplaats, okvk, organisatie, IsOrg
+  ) %>% 
+  summarise(lagb = na_if(max(lagb, na.rm = T), 0)) %>%
   rowid_to_column("lokatie_ID") %>%
   # Maak foreign key naar organisaties
   left_join(
@@ -194,8 +243,8 @@ lokaties <- df %>%
     IsOrg
   )
 # lokatie is uniek gedefinieerd door locatie, lvestigingsnummer, lagb
-# hieraan is later okvk toegevoegd.
-# lokaties %>% count (locatie, lvestigingsnummer, lagb, okvk) %>% filter (n>1) 
+# hieraan is later okvk toegevoegd. TEST: 
+# lokaties %>% count (locatie, lvestigingsnummer, lagb) %>% filter (n>1) 
 
 ## Indicatorsets -----------------------------------------------------------
 indicatorsets <- df %>%
