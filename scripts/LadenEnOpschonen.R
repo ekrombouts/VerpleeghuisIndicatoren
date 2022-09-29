@@ -815,4 +815,4 @@ ps <- organisaties %>%
   )
 Personeelssamenstelling <- ps
 
-rm (bv, bv1, bv2, bv3, ps, ps1, ps2, ps3, df, dfact, cbs_postcode)
+rm (bv, bv1, bv2, bv3, ps, ps1, ps2, ps3, dfact, cbs_postcode)
