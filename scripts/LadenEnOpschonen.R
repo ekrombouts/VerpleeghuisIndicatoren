@@ -122,12 +122,16 @@ df <- df %>%
 # opgegeven, wat problemen geeft met unieke lokaties
 df <- df %>% 
   mutate (locatie = if_else(
-    locatie == "Stichting King Arthur Groep" & indicatorset == "Personeelssamenstelling", 
+    locatie == "Stichting King Arthur Groep" & 
+      indicatorset == "Personeelssamenstelling" &
+      verslagjaar == 2020, 
     true = "Concernniveau: Stichting King Arthur Groep",
     false = locatie
   )) %>% 
   mutate (locatie = if_else(
-    locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" & indicatorset == "Basisveiligheid", 
+    locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" & 
+      indicatorset == "Basisveiligheid" &
+      verslagjaar == 2020, 
     true = "Stichting Protestants-Christelijk Zorgcentrum 't Anker",
     false = locatie
   ))
@@ -136,12 +140,16 @@ df <- df %>%
 # specificeren bij welk concern ze horen. Uitgegaan van postcodes.
 df <- df %>%
   mutate(organisatie = if_else(
-    organisatie == "Stichting Thebe Wonen en Zorg" & str_sub(lpostcode,1,1) == "4",
+    organisatie == "Stichting Thebe Wonen en Zorg" & 
+      str_sub(lpostcode,1,1) == "4"&
+      verslagjaar == 2020,
     true = "Stichting Thebe Wonen en Zorg - West",
     false = organisatie
   ))%>%
   mutate(organisatie = if_else(
-    organisatie == "Stichting Thebe Wonen en Zorg" & str_sub(lpostcode,1,1) == "5",
+    organisatie == "Stichting Thebe Wonen en Zorg" & 
+      str_sub(lpostcode,1,1) == "5"&
+      verslagjaar == 2020,
     true = "Stichting Thebe Wonen en Zorg - Midden",
     false = organisatie
   ))
