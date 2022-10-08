@@ -26,5 +26,11 @@ library (clipr)
 
 # Source files ------------------------------------------------------------
 source("scripts/vi_GetData.R")
-source ("scripts/vi_FirstClean.R")
-source ("scripts/vi_PersoneelsSamenstelling.R")
+source ("scripts/vi_TransformData.R")
+source ("scripts/vi_TransformPS.R")
+
+
+# Save data ---------------------------------------------------------------
+ps <- ps2
+# write.csv(ps, "ps.csv")
+save(ps,file="data/ps.Rda")

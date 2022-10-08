@@ -294,7 +294,7 @@ DoubleLocs <- df %>%
             by = c("okvk", "lpostcode"))  
 
 ## Aparte tabellen Personeelssamenstelling en Basisveiligheid ---------------
-bv <- df %>%
+bv1 <- df %>%
   filter (indicatorset == "Basisveiligheid") %>%
   select (
     verslagjaar,
@@ -310,7 +310,7 @@ bv <- df %>%
     opmerking
   )
 
-ps <- df %>%
+ps1 <- df %>%
   filter (indicatorset == "Personeelssamenstelling") %>%
   select (
     verslagjaar,

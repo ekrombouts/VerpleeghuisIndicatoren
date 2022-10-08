@@ -1,14 +1,15 @@
 
 ```{r include=FALSE}
-library (readr)
 library (tidyverse)
 library (RColorBrewer)
-ps <- read_csv("../ps.csv")
+
+load(file="../data/ps.Rda")
 
 ps <- ps %>% 
-  mutate (grootte = cut(wnFTE, breaks = c(1, 50, 300, Inf))) 
+  mutate (grootte = cut(nFTE, breaks = c(1, 50, 300, Inf))) 
   
-hlo = "V.o.f. Westersypen"
+#hlo = "V.o.f. Westersypen"
+hlo = "Stichting Alkcare"
 hl <- ps [ps$organisatie == hlo, ]
 ```
 # `r hlo`.
@@ -26,11 +27,11 @@ Aantallen per jaar van `r hlo`
 
 hl %>% 
   ggplot (aes(x= verslagjaar)) + 
-  geom_line(aes(y = wnMedew, color = "Medewerkers"), linetype = "dotdash", size = .8) + 
-  geom_line(aes(y = wnFTE, color = "FTE"), size = 1.1)+
+  geom_line(aes(y = nMedew, color = "Medewerkers"), linetype = "dotdash", size = .8) + 
+  geom_line(aes(y =nFTE, color = "FTE"), size = 1.1)+
   geom_line(aes(y = nFTEperCt, color = "Clienten"), size = 1.1)+
-  geom_line (aes(y = wnStag, color = "Stagiaires"), linetype = "dotdash", size = .8)+
-  geom_line(aes(y = wnVrijw, color = "Vrijwilligers"), linetype = "dotdash", size = .8)+
+  geom_line (aes(y =nStag, color = "Stagiaires"), linetype = "dotdash", size = .8)+
+  geom_line(aes(y =nVrijw, color = "Vrijwilligers"), linetype = "dotdash", size = .8)+
   scale_color_brewer (palette = "Set2", direction = -1)+
   scale_x_continuous (breaks = seq(2019, 2021, 1), minor_breaks = seq(2019, 2021, 1)) +
   scale_y_continuous (limits = c(0,NA), expand = c(0,20))+
@@ -46,11 +47,11 @@ de organisaties.
 ps %>% 
   group_by(verslagjaar) %>% 
   summarise(
-    mw = sum (wnMedew, na.rm = T),
-    fte = sum (wnFTE, na.rm = T),
+    mw = sum (nMedew, na.rm = T),
+    fte = sum (nFTE, na.rm = T),
     ct = sum (nFTEperCt, na.rm = T),
-    st = sum (wnStag, na.rm = T), 
-    vw = sum (wnVrijw, na.rm = T)
+    st = sum (nStag, na.rm = T), 
+    vw = sum (nVrijw, na.rm = T)
   ) %>% 
   ggplot (aes(x= verslagjaar)) + 
   geom_line(aes(y = mw/1000, color = "Medewerkers"), linetype = "dotdash", size = .8) + 
@@ -65,41 +66,29 @@ ps %>%
   theme_bw()
 ```
 
-### FTE per client
-```{r}
-ps %>% 
-  filter (!is.na(wFTEperCt)) %>% 
-  ggplot (aes(verslagjaar, wFTEperCt)) +
-  geom_boxplot()+
-  geom_point(data = hl, mapping = aes(verslagjaar, wFTEperCt), color = "red", size = 3) +
-  scale_y_log10()+
-  facet_wrap(~grootte)+
-  theme_bw()
-```
-
 ### Instroom, uitstroom en doorstroom
 ### Niveaumix
 Niveaumix over de afgelopen jaren. Weergegeven als percentage van het 
 zorgpersoneel in dienst.
 ```{r echo=FALSE, warning=FALSE}
 hl %>% 
-  select(organisatie, verslagjaar, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6, wBdnst, wOvPers, wLling) %>% 
-  rename (behandelaren = wBdnst,
-          overig = wOvPers,
-          leerlingen = wLling) %>% 
-  filter (!is.na(wnFTE)) %>% 
-  pivot_longer (cols = c(wNiv1:leerlingen),
+  select(organisatie, verslagjaar,nFTE,Niv1,Niv2,Niv3,Niv4,Niv5,Niv6,Bdnst,OvPers,Lling) %>% 
+  rename (behandelaren =Bdnst,
+          overig =OvPers,
+          leerlingen =Lling) %>% 
+  filter (!is.na(nFTE)) %>% 
+  pivot_longer (cols = c(Niv1:leerlingen),
                 names_to = "niveau", 
                 values_to = "waarde") %>% 
   mutate(niveau = ordered (niveau, levels = 
                                   c( "overig",
                                      "leerlingen",
-                                     "wNiv1",
-                                     "wNiv2",
-                                     "wNiv3",
-                                     "wNiv4", 
-                                     "wNiv5", 
-                                     "wNiv6",
+                                     "Niv1",
+                                     "Niv2",
+                                     "Niv3",
+                                     "Niv4", 
+                                     "Niv5", 
+                                     "Niv6",
                                      "behandelaren"))) %>% 
 ggplot (aes(verslagjaar, waarde, fill = niveau))+
   geom_col()+
@@ -115,16 +104,16 @@ Vergeleken met andere organisaties (verslagjaar = 2021, groepen geven grootte va
 organisatie weer, in aantal FTE)
 ```{r echo=FALSE, warning=FALSE}
 hll <- hl %>% 
-  select(organisatie, verslagjaar, grootte, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6, wBdnst, wOvPers, wLling) %>% 
+  select(organisatie, verslagjaar, grootte,nFTE,Niv1,Niv2,Niv3,Niv4,Niv5,Niv6,Bdnst,OvPers,Lling) %>% 
   filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
-  pivot_longer (cols = c(wNiv1:wNiv6),
+  pivot_longer (cols = c(Niv1:Niv6),
                 names_to = "niveau", 
                 values_to = "waarde")  
   
 ps %>% 
-  select (organisatie, verslagjaar, grootte, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6) %>% 
+  select (organisatie, verslagjaar, grootte,nFTE,Niv1,Niv2,Niv3,Niv4,Niv5,Niv6) %>% 
   filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
-  pivot_longer (cols = c(wNiv1:wNiv6),
+  pivot_longer (cols = c(Niv1:Niv6),
                 names_to = "niveau", 
                 values_to = "waarde") %>% 
   ggplot (aes(niveau,waarde))+
@@ -136,20 +125,20 @@ ps %>%
   theme_bw()
 # En voor behandelaren, leerlingen en overig personeel
 hll <- hl %>% 
-  select(organisatie, verslagjaar, grootte, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6, wBdnst, wOvPers, wLling) %>% 
-  rename (behandelaren = wBdnst,
-          overig = wOvPers,
-          leerlingen = wLling) %>% 
+  select(organisatie, verslagjaar, grootte,nFTE,Niv1,Niv2,Niv3,Niv4,Niv5,Niv6,Bdnst,OvPers,Lling) %>% 
+  rename (behandelaren =Bdnst,
+          overig =OvPers,
+          leerlingen =Lling) %>% 
   filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
   pivot_longer (cols = c(behandelaren:leerlingen),
                 names_to = "niveau", 
                 values_to = "waarde") 
 
 ps %>% 
-  select (organisatie, verslagjaar, grootte, wnFTE, wBdnst, wOvPers, wLling) %>% 
-  rename (behandelaren = wBdnst,
-          overig = wOvPers,
-          leerlingen = wLling) %>% 
+  select (organisatie, verslagjaar, grootte,nFTE,Bdnst,OvPers,Lling) %>% 
+  rename (behandelaren =Bdnst,
+          overig =OvPers,
+          leerlingen =Lling) %>% 
   filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
   pivot_longer (cols = c(behandelaren:leerlingen),
                 names_to = "niveau", 
@@ -167,15 +156,14 @@ ps %>%
 
 ### Waardering
 ```{r}
-ps %>% 
-  filter (verslagjaar = 2021) %>% 
+
   
 ```
 
 Alles op een rijtje
 ```{r echo=FALSE}
 hl %>%
-  pivot_longer(cols = c(wnMedew:nVerzuimFreq),
+  pivot_longer(cols = c(nMedew:nVerzuimFreq),
                names_to = "inaam",
                values_to = "iwaarde") %>%
   select (verslagjaar, inaam, iwaarde) %>%
