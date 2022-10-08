@@ -55,6 +55,64 @@ df <- df %>%
     locatie = str_to_title(locatie)
   )
 
+# Foutieve invoer herstellen ----------------------------------------------
+# Onderstaande organisatie / lokatie koppels gaven problemen
+# Careyn heeft ten onrechte meerdere concerns ingevoerd.
+df <- df %>%
+  filter (!(
+    locatie %in% c(
+      "Concernniveau: Aveant B.v.",
+      "Concernniveau: Careyn Dwo/Nwn B.v.",
+      "Concernniveau: Careyn Zuid-Hollandse eilanden B.v.",
+      "Concernniveau: Zuwe Zorg B.v."
+    )
+  ))
+
+# King Arthur Groep heeft dezelfde gegevens voor organisatie en lokatie
+# opgegeven, wat problemen geeft met unieke lokaties
+df <- df %>%
+  mutate (
+    locatie = if_else(
+      locatie == "Stichting King Arthur Groep" &
+        indicatorset == "Personeelssamenstelling" &
+        verslagjaar == 2020,
+      true = "Concernniveau: Stichting King Arthur Groep",
+      false = locatie
+    )
+  ) %>%
+  mutate (
+    locatie = if_else(
+      locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" &
+        indicatorset == "Basisveiligheid" &
+        verslagjaar == 2020,
+      true = "Stichting Protestants-Christelijk Zorgcentrum 't Anker",
+      false = locatie
+    )
+  )
+
+# Thebe heeft apart voor concernniveaus gerapporteerd, zonder per lokatie te
+# specificeren bij welk concern ze horen. Uitgegaan van postcodes.
+df <- df %>%
+  mutate(
+    organisatie = if_else(
+      organisatie == "Stichting Thebe Wonen En Zorg" &
+        str_sub(lpostcode, 1, 1) == "4" &
+        verslagjaar == 2020,
+      "Stichting Thebe Wonen en Zorg - West",
+      organisatie
+    )
+  ) %>%
+  mutate(
+    organisatie = if_else(
+      organisatie == "Stichting Thebe Wonen En Zorg" &
+        str_sub(lpostcode, 1, 1) == "5" &
+        verslagjaar == 2020,
+      "Stichting Thebe Wonen en Zorg - Midden",
+      organisatie
+    )
+  )
+
+
 # DIM en Fact tabellen ----------------------------------------------------
 ## Indicatorsets -----------------------------------------------------------
 indicatorsets <- df %>%
@@ -137,29 +195,29 @@ indicatoren <- df %>%
       `INID014477` = "CEScoreGet",
       `INID013384` = "CEnRespondenten",
       `INID013385` = "CEOpm",
-      `INID013486` = "PSnMedew",
-      `INID013520` = "PSnFTE",
-      `INID013521` = "PSTijdPerc",
-      `INID013522` = "PSPnilPerc",
-      `INID013523` = "PSPnilKostPerc",
-      `INID013524` = "PSGemContr",
-      `INID013534` = "PSNiv1",
-      `INID013535` = "PSNiv2",
-      `INID013536` = "PSNiv3",
-      `INID013537` = "PSNiv4",
-      `INID013538` = "PSNiv5",
-      `INID013539` = "PSNiv6",
-      `INID013540` = "PSBehandel",
-      `INID013541` = "PSOverig",
-      `INID013542` = "PSLeerling",
-      `INID013526` = "PSnStag",
-      `INID013527` = "PSnVrijw",
-      `INID013528` = "PSVerzuimPerc",
-      `INID013529` = "PSVerzuimFreq",
-      `INID013530` = "PSInstroom",
-      `INID013531` = "PSUitstroom",
-      `INID013532` = "PSDoorstroom",
-      `INID013533` = "PSFTEperCt"
+      `INID013486` = "nMedew",
+      `INID013520` = "nFTE",
+      `INID013521` = "Tijd",
+      `INID013522` = "Pnil",
+      `INID013523` = "PnilKosten",
+      `INID013524` = "GemContr",
+      `INID013534` = "Niv1",
+      `INID013535` = "Niv2",
+      `INID013536` = "Niv3",
+      `INID013537` = "Niv4",
+      `INID013538` = "Niv5",
+      `INID013539` = "Niv6",
+      `INID013540` = "Bdnst",
+      `INID013541` = "OvPers",
+      `INID013542` = "Lling",
+      `INID013526` = "nStag",
+      `INID013527` = "nVrijw",
+      `INID013528` = "VerzuimPerc",
+      `INID013529` = "VerzuimFreq",
+      `INID013530` = "Instroom",
+      `INID013531` = "Uitstroom",
+      `INID013532` = "Doorstroom",
+      `INID013533` = "FTEperCt"
     ),
     .after = inaam
   )
@@ -257,9 +315,6 @@ ps <- df %>%
   select (
     verslagjaar,
     okvk,
-    locatie,
-    lpostcode,
-    thema,
     icode,
     iwaarde,
     teller,
@@ -267,60 +322,3 @@ ps <- df %>%
     invt,
     opmerking
   )
-# Foutieve invoer herstellen ----------------------------------------------
-# # Onderstaande organisatie / lokatie koppels gaven problemen
-# # Careyn heeft ten onrechte meerdere concerns ingevoerd.
-# df <- df %>%
-#   filter (!(
-#     locatie %in% c(
-#       "Concernniveau: Aveant B.v.",
-#       "Concernniveau: Careyn Dwo/Nwn B.v.",
-#       "Concernniveau: Careyn Zuid-Hollandse eilanden B.v.",
-#       "Concernniveau: Zuwe Zorg B.v."
-#     )
-#   ))
-# 
-# # King Arthur Groep heeft dezelfde gegevens voor organisatie en lokatie
-# # opgegeven, wat problemen geeft met unieke lokaties
-# df <- df %>%
-#   mutate (
-#     locatie = if_else(
-#       locatie == "Stichting King Arthur Groep" &
-#         indicatorset == "Personeelssamenstelling" &
-#         verslagjaar == 2020,
-#       true = "Concernniveau: Stichting King Arthur Groep",
-#       false = locatie
-#     )
-#   ) %>%
-#   mutate (
-#     locatie = if_else(
-#       locatie == "Concernniveau: Stichting Protestants-Christelijk Zorgcentrum 't Anker" &
-#         indicatorset == "Basisveiligheid" &
-#         verslagjaar == 2020,
-#       true = "Stichting Protestants-Christelijk Zorgcentrum 't Anker",
-#       false = locatie
-#     )
-#   )
-# 
-# # Thebe heeft apart voor concernniveaus gerapporteerd, zonder per lokatie te
-# # specificeren bij welk concern ze horen. Uitgegaan van postcodes.
-# df <- df %>%
-#   mutate(
-#     organisatie = if_else(
-#       organisatie == "Stichting Thebe Wonen En Zorg" &
-#         str_sub(lpostcode, 1, 1) == "4" &
-#         verslagjaar == 2020,
-#       "Stichting Thebe Wonen en Zorg - West",
-#       organisatie
-#     )
-#   ) %>%
-#   mutate(
-#     organisatie = if_else(
-#       organisatie == "Stichting Thebe Wonen En Zorg" &
-#         str_sub(lpostcode, 1, 1) == "5" &
-#         verslagjaar == 2020,
-#       "Stichting Thebe Wonen en Zorg - Midden",
-#       organisatie
-#     )
-#   )
-

@@ -1,0 +1,186 @@
+
+```{r include=FALSE}
+library (readr)
+library (tidyverse)
+library (RColorBrewer)
+ps <- read_csv("../ps.csv")
+
+ps <- ps %>% 
+  mutate (grootte = cut(wnFTE, breaks = c(1, 50, 300, Inf))) 
+  
+hlo = "V.o.f. Westersypen"
+hl <- ps [ps$organisatie == hlo, ]
+```
+# `r hlo`.
+Data: Openbaar databestand verpleeghuiszorg Zorginstituut Nederland  
+Auteur: Eva Rombouts  
+Datum: Oktober 2022  
+
+Onderstaande informatie is een weergave van de kwaliteitsindicatoren 
+personeelssamenstelling, aangeleverd door `r hlo` ten behoeve van het 
+kwaliteitskader verpleeghuiszorg. 
+
+### Aantal FTE en clienten  
+Aantallen per jaar van `r hlo`  
+```{r echo=FALSE, fig.height=4, warning=FALSE}
+
+hl %>% 
+  ggplot (aes(x= verslagjaar)) + 
+  geom_line(aes(y = wnMedew, color = "Medewerkers"), linetype = "dotdash", size = .8) + 
+  geom_line(aes(y = wnFTE, color = "FTE"), size = 1.1)+
+  geom_line(aes(y = nFTEperCt, color = "Clienten"), size = 1.1)+
+  geom_line (aes(y = wnStag, color = "Stagiaires"), linetype = "dotdash", size = .8)+
+  geom_line(aes(y = wnVrijw, color = "Vrijwilligers"), linetype = "dotdash", size = .8)+
+  scale_color_brewer (palette = "Set2", direction = -1)+
+  scale_x_continuous (breaks = seq(2019, 2021, 1), minor_breaks = seq(2019, 2021, 1)) +
+  scale_y_continuous (limits = c(0,NA), expand = c(0,20))+
+  labs (y = "aantallen")+
+  theme_bw()
+
+```
+
+Landelijk, grafiek geeft het totaal weer van de aantallen, zoals opgegeven door 
+de organisaties.
+```{r echo=FALSE, fig.height=2}
+
+ps %>% 
+  group_by(verslagjaar) %>% 
+  summarise(
+    mw = sum (wnMedew, na.rm = T),
+    fte = sum (wnFTE, na.rm = T),
+    ct = sum (nFTEperCt, na.rm = T),
+    st = sum (wnStag, na.rm = T), 
+    vw = sum (wnVrijw, na.rm = T)
+  ) %>% 
+  ggplot (aes(x= verslagjaar)) + 
+  geom_line(aes(y = mw/1000, color = "Medewerkers"), linetype = "dotdash", size = .8) + 
+  geom_line(aes(y = fte/1000, color = "FTE"), size = 1.1)+
+  geom_line(aes(y = ct/1000, color = "Clienten"), size = 1.1)+
+  geom_line (aes(y = st/1000, color = "Stagiaires"), linetype = "dotdash", size = .8)+
+  geom_line(aes(y = vw/1000, color = "Vrijwilligers"), linetype = "dotdash", size = .8)+
+  scale_color_brewer (palette = "Set2", direction = -1)+
+  scale_x_continuous (breaks = seq(2019, 2021, 1)) +
+  scale_y_continuous ()+
+  labs (y = "aantallen (x1000)")+
+  theme_bw()
+```
+
+### FTE per client
+```{r}
+ps %>% 
+  filter (!is.na(wFTEperCt)) %>% 
+  ggplot (aes(verslagjaar, wFTEperCt)) +
+  geom_boxplot()+
+  geom_point(data = hl, mapping = aes(verslagjaar, wFTEperCt), color = "red", size = 3) +
+  scale_y_log10()+
+  facet_wrap(~grootte)+
+  theme_bw()
+```
+
+### Instroom, uitstroom en doorstroom
+### Niveaumix
+Niveaumix over de afgelopen jaren. Weergegeven als percentage van het 
+zorgpersoneel in dienst.
+```{r echo=FALSE, warning=FALSE}
+hl %>% 
+  select(organisatie, verslagjaar, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6, wBdnst, wOvPers, wLling) %>% 
+  rename (behandelaren = wBdnst,
+          overig = wOvPers,
+          leerlingen = wLling) %>% 
+  filter (!is.na(wnFTE)) %>% 
+  pivot_longer (cols = c(wNiv1:leerlingen),
+                names_to = "niveau", 
+                values_to = "waarde") %>% 
+  mutate(niveau = ordered (niveau, levels = 
+                                  c( "overig",
+                                     "leerlingen",
+                                     "wNiv1",
+                                     "wNiv2",
+                                     "wNiv3",
+                                     "wNiv4", 
+                                     "wNiv5", 
+                                     "wNiv6",
+                                     "behandelaren"))) %>% 
+ggplot (aes(verslagjaar, waarde, fill = niveau))+
+  geom_col()+
+  scale_x_continuous (breaks = seq(2019, 2021, 1), minor_breaks = seq(2019, 2021, 1), expand = c(0,0)) +
+  scale_y_continuous (limits = c(0,100), expand = c(0,0))+
+  scale_fill_brewer(palette = "Purples")+
+  labs (x = "jaar",
+          y = "percentage van zorgpersoneel in dienst")+
+  theme_grey()
+```
+
+Vergeleken met andere organisaties (verslagjaar = 2021, groepen geven grootte van de 
+organisatie weer, in aantal FTE)
+```{r echo=FALSE, warning=FALSE}
+hll <- hl %>% 
+  select(organisatie, verslagjaar, grootte, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6, wBdnst, wOvPers, wLling) %>% 
+  filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
+  pivot_longer (cols = c(wNiv1:wNiv6),
+                names_to = "niveau", 
+                values_to = "waarde")  
+  
+ps %>% 
+  select (organisatie, verslagjaar, grootte, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6) %>% 
+  filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
+  pivot_longer (cols = c(wNiv1:wNiv6),
+                names_to = "niveau", 
+                values_to = "waarde") %>% 
+  ggplot (aes(niveau,waarde))+
+  geom_boxplot()+
+  geom_point(data = hll, mapping = aes(niveau, waarde), color = "red", size = 3) +
+  labs (x = "niveaumix",
+          y = "percentage van zorgpersoneel in dienst")+
+  facet_wrap(~grootte)+
+  theme_bw()
+# En voor behandelaren, leerlingen en overig personeel
+hll <- hl %>% 
+  select(organisatie, verslagjaar, grootte, wnFTE, wNiv1, wNiv2, wNiv3, wNiv4, wNiv5, wNiv6, wBdnst, wOvPers, wLling) %>% 
+  rename (behandelaren = wBdnst,
+          overig = wOvPers,
+          leerlingen = wLling) %>% 
+  filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
+  pivot_longer (cols = c(behandelaren:leerlingen),
+                names_to = "niveau", 
+                values_to = "waarde") 
+
+ps %>% 
+  select (organisatie, verslagjaar, grootte, wnFTE, wBdnst, wOvPers, wLling) %>% 
+  rename (behandelaren = wBdnst,
+          overig = wOvPers,
+          leerlingen = wLling) %>% 
+  filter (verslagjaar == 2021 & !is.na(grootte)) %>% 
+  pivot_longer (cols = c(behandelaren:leerlingen),
+                names_to = "niveau", 
+                values_to = "waarde") %>% 
+  ggplot (aes(niveau,waarde))+
+  geom_boxplot()+
+  geom_point(data = hll, mapping = aes(niveau, waarde), color = "red", size = 3) +
+  labs (x = "niveaumix",
+          y = "percentage van zorgpersoneel in dienst")+
+  facet_wrap(~grootte)+
+  theme_bw()
+```
+
+### Kosten personeel
+
+### Waardering
+```{r}
+ps %>% 
+  filter (verslagjaar = 2021) %>% 
+  
+```
+
+Alles op een rijtje
+```{r echo=FALSE}
+hl %>%
+  pivot_longer(cols = c(wnMedew:nVerzuimFreq),
+               names_to = "inaam",
+               values_to = "iwaarde") %>%
+  select (verslagjaar, inaam, iwaarde) %>%
+  pivot_wider(names_from = verslagjaar,
+              values_from = iwaarde) %>%
+print (n= 500)
+
+```

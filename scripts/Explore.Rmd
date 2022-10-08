@@ -1,0 +1,15 @@
+Organisatie: Stichting Careyn
+
+```{r}
+library (tidyverse)
+ps <- read.csv("../ps.csv")
+
+org <- "Stichting Careyn"
+kvk <- "27278704"
+
+df %>% 
+  filter (okvk %in% DoubleOrgs$okvk) %>% 
+  select (organisatie, locatie, lpostcode, indicatorset, icode) %>% 
+  print (5000)
+```
+
