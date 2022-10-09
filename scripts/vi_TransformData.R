@@ -51,8 +51,8 @@ df <- df %>%
     lvestigingsnummer = as.character(lvestigingsnummer),
     lagb = as.character(lagb),
     # Netjes weergeven
-    organisatie = str_to_title(organisatie),
-    locatie = str_to_title(locatie)
+    organisatie = str_to_title(clean_strings(organisatie)),
+    locatie = str_to_title(clean_strings(locatie))
   )
 
 # Foutieve invoer herstellen ----------------------------------------------
@@ -149,52 +149,54 @@ indicatoren <- df %>%
   mutate (
     ind = recode(
       icode,
-      `INID014307` = "DecGek",
-      `INID013307` = "DecPercC",
-      `INID014308` = "DecCasGek",
-      `INID014309` = "DecCasPercA",
-      `INID013309` = "ACPPercC",
-      `INID014310` = "MedFtPercA",
-      `INID014311` = "MedRevGek",
-      `INID014312` = "MedRevPercC",
-      `INID014313` = "MMGekozen",
-      `INID013318` = "MMMechanischPercC",
-      `INID013319` = "MMFysiekPercC",
-      `INID013320` = "MMFarmacPercC",
-      `INID013321` = "MMPsychPercC",
-      `INID013322` = "MMElecPercC",
-      `INID013323` = "MM1op1PercC",
-      `INID013324` = "MMAfzonPercC",
-      `INID013325` = "MMOverigPercC",
-      `INID013326` = "MMOverigTekst",
-      `INID014314` = "VrijBepGek",
-      `INID014315` = "VrijBepTekst",
-      `INID014316` = "VrijBevGek",
-      `INID014317` = "VrijBevTekst",
-      `INID014318` = "ContGek",
-      `INID014321` = "ContWPlanPercC",
-      `INID014322` = "ContGPlanPercC",
-      `INID014323` = "ContOPlanPercC",
-      `INID014325` = "ContVoorkeurenJN",
-      `INID014326` = "ContOndersteuningJN",
-      `INID014327` = "ContZelfstandigJN",
-      `INID014328` = "ContMateriaalJN",
-      `INID014329` = "ContAndersJN",
-      `INID014330` = "VoedWVoorkeurPercC",
-      `INID014331` = "VoedGVoorkeurPercC",
-      `INID014332` = "VoedOVoorkeurPercC",
-      `INID014334` = "VoedWelkJN",
-      `INID014335` = "VoedVormJN",
-      `INID014336` = "VoedHulpJN",
-      `INID014337` = "VoedTijdPlaatsJN",
-      `INID014338` = "VoedOverigJN",
-      `INID010008` = "KwalVerslURL",
-      `INID013383` = "BronAanbeveling",
-      `INID013381` = "CENPS8910PercR",
-      `INID013382` = "CENPSJaPercR",
-      `INID014477` = "CEScoreGet",
-      `INID013384` = "CEnRespondenten",
-      `INID013385` = "CEOpm",
+      # Decubitus
+      `INID014307` = "gekDecubitus",
+      `INID013307` = "pcDecubitus",
+      `INID014308` = "gekDecubitusCasuistiek",
+      `INID014309` = "paDecCas",
+      `INID013309` = "pcACP",
+      `INID014310` = "paMedFt",
+      `INID014311` = "gekMedRev",
+      `INID014312` = "pcMedRev",
+      `INID014313` = "gekMM",
+      `INID013318` = "pcMMMechanisch",
+      `INID013319` = "pcMMFysiek",
+      `INID013320` = "pcMMFarmac",
+      `INID013321` = "pcMMPsych",
+      `INID013322` = "pcMMElec",
+      `INID013323` = "pcMM1op1",
+      `INID013324` = "pcMMAfzond",
+      `INID013325` = "pcMMOverig",
+      `INID013326` = "txMMOverig",
+      `INID014314` = "gekVrijBep",
+      `INID014315` = "txVrijBep",
+      `INID014316` = "gekVrijBev",
+      `INID014317` = "txVrijBev",
+      `INID014318` = "gekContinentie",
+      `INID014321` = "pcContWPlan",
+      `INID014322` = "pcContGPlan",
+      `INID014323` = "pcContOPlan",
+      `INID014325` = "jnContVoorkeuren",
+      `INID014326` = "jnContOndersteuning",
+      `INID014327` = "jnContZelfstandig",
+      `INID014328` = "jnContMateriaal",
+      `INID014329` = "jnContAnders",
+      `INID014330` = "pcVoedWVoorkeur",
+      `INID014331` = "pcVoedGVoorkeur",
+      `INID014332` = "pcVoedOVoorkeur",
+      `INID014334` = "jnVoedWelk",
+      `INID014335` = "jnVoedVorm",
+      `INID014336` = "jnVoedHulp",
+      `INID014337` = "jnVoedTijdPlaats",
+      `INID014338` = "jnVoedOverig",
+      `INID010008` = "txKwalVerslURL",
+      `INID013383` = "txBronAanbeveling",
+      `INID013381` = "prWd8910",
+      `INID013382` = "prWdJa",
+      `INID014477` = "nWdGet",
+      `INID013384` = "nWdResp",
+      `INID013385` = "txWdOpm",
+      #Personeelssamenstelling
       `INID013486` = "nMedew",
       `INID013520` = "nFTE",
       `INID013521` = "Tijd",
@@ -284,7 +286,7 @@ lokaties <- df %>%
 DoubleLocs <- df %>% 
   # Een locatie is dubbel geregistreerd. Selecteer
   filter (indicatorset_code == "ISID000151") %>% 
-  group_by(verslagjaar, okvk, lpostcode) %>% 
+  group_by(verslagjaar, okvk, lpostcode, locatie) %>% 
   summarise (n= n()) %>% 
   arrange (-n) %>% 
   filter (n>50) %>% 
@@ -301,7 +303,6 @@ bv1 <- df %>%
     okvk,
     locatie,
     lpostcode,
-    thema,
     icode,
     iwaarde,
     teller,
@@ -322,3 +323,4 @@ ps1 <- df %>%
     invt,
     opmerking
   )
+
